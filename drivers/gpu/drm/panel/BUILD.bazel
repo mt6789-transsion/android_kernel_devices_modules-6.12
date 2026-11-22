@@ -127,3 +127,59 @@ PANELS = [
         "//kernel_device_modules-{}/drivers/misc/mediatek/gate_ic:rt4831a_drv".format(kernel_version),
     ],
 ) for p in PANELS]
+
+define_mgk_ddk_ko(
+    name = "tran_drm_panel_i2c",
+    srcs = ["tran_drm_panel_i2c.c"],
+    hdrs = ["tran_drm_panel_i2c.h"],
+    includes = ["."],
+    out = "tran_drm_panel_i2c.ko",
+)
+
+define_mgk_ddk_ko(
+    name = "panel-ili7807s-fhdp-dsi-vdo-tm",
+    srcs = ["panel-ili7807s-fhdp-dsi-vdo-tm.c"],
+    hdrs = ["tran_drm_panel_i2c.h"],
+    includes = ["."],
+    ko_deps = [
+        ":tran_drm_panel_i2c",
+        "//kernel_device_modules-{}/drivers/gpu/drm/mediatek/mediatek_v2:mtk_panel_ext".format(kernel_version),
+    ],
+    out = "panel-ili7807s-fhdp-dsi-vdo-tm.ko",
+)
+
+define_mgk_ddk_ko(
+    name = "panel-ft8725-fhdp-dsi-vdo-lce",
+    srcs = ["panel-ft8725-fhdp-dsi-vdo-lce.c"],
+    hdrs = ["tran_drm_panel_i2c.h"],
+    includes = ["."],
+    ko_deps = [
+        ":tran_drm_panel_i2c",
+        "//kernel_device_modules-{}/drivers/gpu/drm/mediatek/mediatek_v2:mtk_panel_ext".format(kernel_version),
+    ],
+    out = "panel-ft8725-fhdp-dsi-vdo-lce.ko",
+)
+
+define_mgk_ddk_ko(
+    name = "panel-ft8725-fhdp-dsi-vdo-txd",
+    srcs = ["panel-ft8725-fhdp-dsi-vdo-txd.c"],
+    hdrs = ["tran_drm_panel_i2c.h"],
+    includes = ["."],
+    ko_deps = [
+        ":tran_drm_panel_i2c",
+        "//kernel_device_modules-{}/drivers/gpu/drm/mediatek/mediatek_v2:mtk_panel_ext".format(kernel_version),
+    ],
+    out = "panel-ft8725-fhdp-dsi-vdo-txd.ko",
+)
+
+define_mgk_ddk_ko(
+    name = "panel-il77600a-fhdp-dsi-vdo-tm",
+    srcs = ["panel-il77600a-fhdp-dsi-vdo-tm.c"],
+    hdrs = ["tran_drm_panel_i2c.h"],
+    includes = ["."],
+    ko_deps = [
+        ":tran_drm_panel_i2c",
+        "//kernel_device_modules-{}/drivers/gpu/drm/mediatek/mediatek_v2:mtk_panel_ext".format(kernel_version),
+    ],
+    out = "panel-il77600a-fhdp-dsi-vdo-tm.ko",
+)
