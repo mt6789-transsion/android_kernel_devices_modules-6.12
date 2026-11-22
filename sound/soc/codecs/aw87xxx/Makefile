@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: GPL-2.0
+obj-m += aw87xxx_main.o
+
+aw87xxx_main-objs := \
+	aw87xxx.o \
+	aw87xxx_device.o \
+	aw87xxx_monitor.o \
+	aw87xxx_bin_parse.o \
+	aw87xxx_dsp.o \
+	aw87xxx_acf_bin.o

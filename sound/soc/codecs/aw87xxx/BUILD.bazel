@@ -1,0 +1,18 @@
+load("//build/bazel_mgk_rules:mgk_ddk_ko.bzl", "define_mgk_ddk_ko")
+
+package(default_visibility = ["//visibility:public"])
+
+define_mgk_ddk_ko(
+    name = "aw87xxx_main",
+    srcs = [
+        "aw87xxx.c",
+        "aw87xxx_acf_bin.c",
+        "aw87xxx_bin_parse.c",
+        "aw87xxx_device.c",
+        "aw87xxx_dsp.c",
+        "aw87xxx_monitor.c",
+    ],
+    hdrs = glob(["*.h"]),
+    includes = ["."],
+    out = "aw87xxx_main.ko",
+)
