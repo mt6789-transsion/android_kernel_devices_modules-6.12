@@ -664,3 +664,29 @@ define_mgk_ddk_ko(
         "-I$(DEVICE_MODULES_PATH)/drivers/power/supply/ufcs",
     ],
 )
+
+define_mgk_ddk_ko(
+    name = "tran_common_class",
+    srcs = ["tran_common_class.c"],
+    hdrs = ["tran_common_class.h"],
+    includes = ["."],
+    out = "tran_common_class.ko",
+)
+
+define_mgk_ddk_ko(
+    name = "hl7138",
+    srcs = ["hl7138.c"],
+    hdrs = ["charger_class.h"],
+    includes = ["."],
+    ko_deps = [":charger_class"],
+    out = "hl7138.ko",
+)
+
+define_mgk_ddk_ko(
+    name = "sc8950",
+    srcs = ["sc8950.c"],
+    hdrs = ["charger_class.h"],
+    includes = ["."],
+    ko_deps = [":charger_class"],
+    out = "sc8950.ko",
+)
