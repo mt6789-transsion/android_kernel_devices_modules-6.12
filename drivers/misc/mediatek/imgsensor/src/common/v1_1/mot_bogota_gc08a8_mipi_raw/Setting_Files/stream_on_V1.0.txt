@@ -1,1 +1,0 @@
-ff  0100  01 //1:active  0:standby
