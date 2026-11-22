@@ -1,0 +1,20 @@
+load("//build/bazel_mgk_rules:mgk_ddk_ko.bzl", "define_mgk_ddk_ko")
+load("@mgk_info//:kernel_version.bzl", "kernel_version")
+
+package(default_visibility = ["//visibility:public"])
+
+define_mgk_ddk_ko(
+    name = "tran_touch",
+    srcs = [
+        "tran_touch_core.c",
+        "tran_touch_gesture.c",
+        "tran_touch_mtk.c",
+        "tran_touch_node.c",
+    ],
+    hdrs = ["tran_touch_core.h"],
+    includes = ["."],
+    ko_deps = [
+        "//kernel_device_modules-{}/drivers/gpu/drm/mediatek/mediatek_v2:mtk_disp_notify".format(kernel_version),
+    ],
+    out = "tran_touch.ko",
+)

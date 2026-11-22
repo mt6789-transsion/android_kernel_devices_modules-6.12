@@ -1,0 +1,28 @@
+load("//build/bazel_mgk_rules:mgk_ddk_ko.bzl", "define_mgk_ddk_ko")
+load("@mgk_info//:kernel_version.bzl", "kernel_version")
+
+package(default_visibility = ["//visibility:public"])
+
+define_mgk_ddk_ko(
+    name = "ilitek_common",
+    srcs = [
+        "ilitek_v3.c",
+        "ilitek_v3_hostdl.c",
+        "ilitek_v3_ic.c",
+        "ilitek_v3_mp.c",
+        "ilitek_v3_mtk.c",
+        "ilitek_v3_node.c",
+        "ilitek_v3_spi.c",
+        "ilitek_v3_touch.c",
+        "ilitek_v3_tran.c",
+    ],
+    hdrs = [
+        "ilitek_v3.h",
+        "ilitek_v3_fw.h",
+    ],
+    includes = ["."],
+    ko_deps = [
+        "//kernel_device_modules-{}/drivers/input/touchscreen/tran_touch:tran_touch".format(kernel_version),
+    ],
+    out = "ilitek_common.ko",
+)

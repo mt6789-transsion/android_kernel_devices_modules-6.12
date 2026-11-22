@@ -1,0 +1,30 @@
+load("//build/bazel_mgk_rules:mgk_ddk_ko.bzl", "define_mgk_ddk_ko")
+load("@mgk_info//:kernel_version.bzl", "kernel_version")
+
+package(default_visibility = ["//visibility:public"])
+
+define_mgk_ddk_ko(
+    name = "focaltech_noflash_common",
+    srcs = [
+        "focaltech_core.c",
+        "focaltech_esdcheck.c",
+        "focaltech_ex_fun.c",
+        "focaltech_ex_mode.c",
+        "focaltech_flash.c",
+        "focaltech_gesture.c",
+        "focaltech_point_report_check.c",
+        "focaltech_spi.c",
+        "focaltech_test.c",
+        "focaltech_test_ft8725.c",
+        "focaltech_tran.c",
+    ],
+    hdrs = [
+        "focaltech_core.h",
+        "focaltech_test.h",
+    ],
+    includes = ["."],
+    ko_deps = [
+        "//kernel_device_modules-{}/drivers/input/touchscreen/tran_touch:tran_touch".format(kernel_version),
+    ],
+    out = "focaltech_noflash_common.ko",
+)
