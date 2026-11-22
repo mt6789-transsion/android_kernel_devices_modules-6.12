@@ -100,3 +100,10 @@ ddk_headers(
      hdrs = glob(["*.h"]),
      includes = ["."],
 )
+
+define_mgk_ddk_ko(
+    name = "flashlights-ocp81375",
+    srcs = ["flashlights-ocp81375.c"],
+    ko_deps = [":flashlight"],
+    out = "flashlights-ocp81375.ko",
+)
