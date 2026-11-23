@@ -1,0 +1,24 @@
+# SPDX-License-Identifier: Apache-2.0
+
+load("//build/kernel/kleaf:kernel.bzl", "kernel_dtstree")
+
+kernel_dtstree(
+    name = "mtk_dt",
+    srcs = glob(
+        [
+            "Makefile",
+            "mediatek/Makefile",
+            "mediatek/**/*.dtsi",
+            "mediatek/**/*.dts",
+        ],
+        exclude = [
+            "**/.*",
+            "**/.*/**",
+            "**/BUILD.bazel",
+            "**/*.bzl",
+        ],
+    ) + [
+        "//kernel_device_modules-6.12:mgk_dt-bindings",
+    ],
+    visibility = ["//visibility:public"],
+)
