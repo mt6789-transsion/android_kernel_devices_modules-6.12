@@ -48,6 +48,7 @@ struct GPIO_PINCTRL gpio_pinctrl_list_switch[
 };
 
 static struct GPIO gpio_instance;
+static struct pinctrl_state *x6837_vs2pmu_state[2][2]; /* [cam0/1][0=H, 1=L] */
 
 static enum IMGSENSOR_RETURN gpio_init(
 	void *pinstance,
@@ -66,6 +67,11 @@ static enum IMGSENSOR_RETURN gpio_init(
 		PK_DBG("ERROR: %s, Cannot find camera pinctrl!", __func__);
 		return IMGSENSOR_RETURN_ERROR;
 	}
+
+	x6837_vs2pmu_state[0][0] = pinctrl_lookup_state(pgpio->ppinctrl, "cam0_ldo_vs2pmu_1");
+	x6837_vs2pmu_state[0][1] = pinctrl_lookup_state(pgpio->ppinctrl, "cam0_ldo_vs2pmu_0");
+	x6837_vs2pmu_state[1][0] = pinctrl_lookup_state(pgpio->ppinctrl, "cam1_ldo_vs2pmu_1");
+	x6837_vs2pmu_state[1][1] = pinctrl_lookup_state(pgpio->ppinctrl, "cam1_ldo_vs2pmu_0");
 
 	for (j = IMGSENSOR_SENSOR_IDX_MIN_NUM;
 		j < IMGSENSOR_SENSOR_IDX_MAX_NUM;
@@ -165,6 +171,12 @@ static enum IMGSENSOR_RETURN gpio_set(
 			(pin_index << 1) + gpio_state];
 
 	mutex_lock(pgpio->pgpio_mutex);
+
+	if (pin == IMGSENSOR_HW_PIN_DOVDD && sensor_idx_uint < 2) {
+		struct pinctrl_state *vs = x6837_vs2pmu_state[sensor_idx_uint][gpio_state];
+		if (!IS_ERR_OR_NULL(vs))
+			pinctrl_select_state(pgpio->ppinctrl, vs);
+	}
 
 	if (ppinctrl_state != NULL && !IS_ERR(ppinctrl_state))
 		pinctrl_select_state(pgpio->ppinctrl, ppinctrl_state);

@@ -11,6 +11,58 @@
 
 /* Legacy design */
 struct IMGSENSOR_HW_POWER_SEQ sensor_power_sequence[] = {
+#if defined(S5KHM6SX_MIPI_RAW)
+	{
+		SENSOR_DRVNAME_S5KHM6SX_MIPI_RAW,
+		{
+			{RST, Vol_Low, 1},
+			{DOVDD, Vol_1800, 1},
+			{DVDD, Vol_1000, 1},
+			{AVDD, Vol_2800, 1},
+			{AFVDD, Vol_2800, 1},
+			{SensorMCLK, Vol_High, 1},
+			{RST, Vol_High, 10},
+		},
+	},
+#endif
+#if defined(MOT_BOGOTA_GC32E1_MIPI_RAW)
+	{
+		SENSOR_DRVNAME_GC32E1_MIPI_RAW,
+		{
+			{SensorMCLK, Vol_High, 0},
+			{RST, Vol_Low, 1},
+			{DOVDD, Vol_1800, 6},
+			{DVDD, Vol_1200, 5},
+			{AVDD, Vol_2800, 5},
+			{RST, Vol_High, 5},
+		},
+	},
+#endif
+#if defined(GC08A3_MIPI_RAW)
+	{
+		SENSOR_DRVNAME_GC08A3_MIPI_RAW,
+		{
+			{RST, Vol_Low, 1},
+			{DOVDD, Vol_1800, 1},
+			{DVDD, Vol_1200, 1},
+			{AVDD, Vol_2800, 1},
+			{SensorMCLK, Vol_High, 2},
+			{RST, Vol_High, 5},
+		},
+	},
+#endif
+#if defined(GC02M1MACRO_MIPI_RAW)
+	{
+		SENSOR_DRVNAME_GC02M1MACRO_MIPI_RAW,
+		{
+			{RST, Vol_Low, 1},
+			{DOVDD, Vol_1800, 1},
+			{AVDD, Vol_2800, 1},
+			{SensorMCLK, Vol_High, 2},
+			{RST, Vol_High, 5},
+		},
+	},
+#endif
 #if defined(CONFIG_MOT_TAIPEI_CAMERA_PROJECT)
 #if defined(MOT_TAIPEI_S5KJNS_MIPI_RAW)
         {
@@ -82,15 +134,54 @@ struct IMGSENSOR_HW_POWER_SEQ sensor_power_sequence[] = {
                 },
         },
 #endif
+#if defined(S5KHM6SX_MIPI_RAW)
+	{
+		SENSOR_DRVNAME_S5KHM6SX_MIPI_RAW,
+		{
+			{RST, Vol_Low, 1},
+			{DOVDD, Vol_1800, 1},
+			{DVDD, Vol_1000, 1},
+			{AVDD, Vol_2800, 1},
+			{AFVDD, Vol_2800, 1},
+			{SensorMCLK, Vol_High, 1},
+			{RST, Vol_High, 10},
+		},
+	},
+#endif
+#if defined(GC08A3_MIPI_RAW)
+	{
+		SENSOR_DRVNAME_GC08A3_MIPI_RAW,
+		{
+			{RST, Vol_Low, 1},
+			{DOVDD, Vol_1800, 1},
+			{DVDD, Vol_1200, 1},
+			{AVDD, Vol_2800, 1},
+			{SensorMCLK, Vol_High, 2},
+			{RST, Vol_High, 5},
+		},
+	},
+#endif
+#if defined(GC02M1MACRO_MIPI_RAW)
+	{
+		SENSOR_DRVNAME_GC02M1MACRO_MIPI_RAW,
+		{
+			{RST, Vol_Low, 1},
+			{DOVDD, Vol_1800, 1},
+			{AVDD, Vol_2800, 1},
+			{SensorMCLK, Vol_High, 2},
+			{RST, Vol_High, 5},
+		},
+	},
+#endif
 #if defined(MOT_BOGOTA_GC32E1_MIPI_RAW)
         {
-                SENSOR_DRVNAME_MOT_BOGOTA_GC32E1_MIPI_RAW,
+                SENSOR_DRVNAME_GC32E1_MIPI_RAW,
                 {
                         {SensorMCLK, Vol_High, 0},
                         {RST, Vol_Low, 1},
                         {DOVDD, Vol_1800, 6},
-                        {DVDD, Vol_High, 5},
-                        {AVDD, Vol_High, 5},
+                        {DVDD, Vol_1200, 5},
+                        {AVDD, Vol_2800, 5},
                         {RST, Vol_High, 5},
                 },
         },

@@ -140,6 +140,17 @@ enum IMGSENSOR_RETURN imgsensor_hw_init(struct IMGSENSOR_HW *phw)
 					__func__, ret_snprintf);
 			if (of_property_read_string(
 				of_node, str_prop_name,
+				&pin_hw_id_name) != 0) {
+				/* X6837 DT uses cam1_pin_exta2 / cam1_pin_extd2 */
+				if (ppwr_info->pin == IMGSENSOR_HW_PIN_AVDD)
+					snprintf(str_prop_name, sizeof(str_prop_name),
+						"cam%d_pin_exta2", i);
+				else if (ppwr_info->pin == IMGSENSOR_HW_PIN_DVDD)
+					snprintf(str_prop_name, sizeof(str_prop_name),
+						"cam%d_pin_extd2", i);
+			}
+			if (of_property_read_string(
+				of_node, str_prop_name,
 				&pin_hw_id_name) == 0) {
 				for (j = 0; j < IMGSENSOR_HW_ID_MAX_NUM; j++) {
 					len = strlen(imgsensor_hw_id_names[j]);

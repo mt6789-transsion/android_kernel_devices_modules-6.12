@@ -5,6 +5,10 @@
 
 #include "regulator.h"
 
+extern void x6837_ext_ldo_init(void);
+extern int x6837_ext_ldo_enable(int sensor_idx, int pin, int voltage_uv);
+extern int x6837_ext_ldo_disable(int sensor_idx, int pin);
+
 
 static const int regulator_voltage[] = {
 	REGULATOR_VOLTAGE_0,
@@ -45,6 +49,8 @@ static enum IMGSENSOR_RETURN regulator_init(
 	struct REGULATOR *preg = (struct REGULATOR *)pinstance;
 	int type, idx, ret = 0;
 	char str_regulator_name[LENGTH_FOR_SNPRINTF];
+
+	x6837_ext_ldo_init();
 
 	for (idx = IMGSENSOR_SENSOR_IDX_MIN_NUM;
 		idx < IMGSENSOR_SENSOR_IDX_MAX_NUM;
@@ -166,10 +172,11 @@ static enum IMGSENSOR_RETURN regulator_set(
 			atomic_dec(enable_cnt);
 		}
 	} else {
-		PK_DBG("regulator == NULL %d %d %d\n",
-				reg_type_offset,
-				pin,
-				IMGSENSOR_HW_PIN_AVDD);
+		if (pin_state != IMGSENSOR_HW_PIN_STATE_LEVEL_0)
+			x6837_ext_ldo_enable((int)sensor_idx, (int)pin,
+				regulator_voltage[pin_state - IMGSENSOR_HW_PIN_STATE_LEVEL_0]);
+		else
+			x6837_ext_ldo_disable((int)sensor_idx, (int)pin);
 	}
 
 	return IMGSENSOR_RETURN_SUCCESS;
