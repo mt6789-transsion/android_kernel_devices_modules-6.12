@@ -4382,6 +4382,15 @@ static signed int FDVT_probe(struct platform_device *pDev)
 		return -ENXIO;
 	}
 
+	/* Ensure real hardware AIE node (with reg) always probes as nr_fdvt_devs == 1
+	 * before fake IOMMU node (mtk_iommu_fake_aie@0 without reg).
+	 */
+	if (nr_fdvt_devs == 0 && !of_get_property(pDev->dev.of_node, "reg", NULL)) {
+		log_inf("Deferring non-reg node %s until real AIE probes\n",
+			pDev->dev.of_node->name);
+		return -EPROBE_DEFER;
+	}
+
 	nr_fdvt_devs += 1;
 	_fdvt_dev = krealloc(fdvt_devs, sizeof(struct fdvt_device) *
 				nr_fdvt_devs, GFP_KERNEL);
