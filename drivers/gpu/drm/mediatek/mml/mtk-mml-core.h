@@ -204,7 +204,7 @@ do { \
 		cmdq_util_error_save("[mml][aee] "fmt"\n", ##args); \
 	} while (0)
 
-#define mml_fatal(args...) mml_aee(##args)
+#define mml_fatal(args...) mml_aee(args)
 
 #endif
 

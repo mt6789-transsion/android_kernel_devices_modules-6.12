@@ -2688,6 +2688,9 @@ struct mtk_ddp_comp *mtk_ddp_comp_request_output(struct mtk_drm_crtc *mtk_crtc)
 	struct mtk_ddp_comp *comp;
 	int i, j;
 
+	if (!mtk_crtc || mtk_crtc->ddp_mode >= DDP_MODE_NR)
+		return NULL;
+
 	if (mtk_crtc->ddp_ctx[mtk_crtc->ddp_mode].output_comp)
 		return mtk_crtc->ddp_ctx[mtk_crtc->ddp_mode].output_comp;
 
@@ -2707,6 +2710,9 @@ struct mtk_ddp_comp *mtk_ddp_comp_request_output_lpc(struct mtk_drm_crtc *mtk_cr
 {
 	struct mtk_ddp_comp *comp;
 	int i, j;
+
+	if (!mtk_crtc || mtk_crtc->ddp_mode >= DDP_MODE_NR)
+		return NULL;
 
 	for_each_comp_in_crtc_path_reverse(
 		comp, mtk_crtc, i,

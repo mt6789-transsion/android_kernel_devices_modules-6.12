@@ -3822,6 +3822,14 @@ static int check_disp_info(struct drm_mtk_layering_info *disp_info)
 			return -1;
 		}
 
+		/* Android 13 HWC only initializes gles_head/tail for disp 0..2; disp 3 is 0 */
+		if (layer_num == 0 && ghead == 0 && gtail == 0) {
+			disp_info->gles_head[disp_idx] = -1;
+			disp_info->gles_tail[disp_idx] = -1;
+			ghead = -1;
+			gtail = -1;
+		}
+
 		if ((ghead < 0 && gtail >= 0) || (gtail < 0 && ghead >= 0) || (gtail < ghead) ||
 		    (gtail >= layer_num)) {
 			dump_disp_info(disp_info, DISP_DEBUG_LEVEL_ERR);
@@ -3892,7 +3900,8 @@ _copy_layer_info_from_disp(struct drm_mtk_layering_info *disp_info_user,
 					layer_size);
 			return -EFAULT;
 		}
-		if (copy_from_user(l_info->mml_cfg[disp_idx],
+		if (disp_info_user->mml_cfg[disp_idx] &&
+		    copy_from_user(l_info->mml_cfg[disp_idx],
 				   disp_info_user->mml_cfg[disp_idx],
 				   mml_cfg_size)) {
 			DDPMSG("%s:%d copy failed:(0x%p,0x%p), size:%ld\n",

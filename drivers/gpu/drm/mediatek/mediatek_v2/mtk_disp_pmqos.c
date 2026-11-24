@@ -1980,16 +1980,18 @@ void mtk_drm_set_mmclk(struct drm_crtc *crtc, int level, bool lp_mode,
 		return;
 	}
 
-	if (mm_freq_request) {
+	if (!IS_ERR_OR_NULL(mm_freq_request)) {
 		if (vdisp_opp == U8_MAX) /* not support for vdisp platform */
 			mmdvfs_set_lp_mode(final_lp_mode);
 
 		opp = dev_pm_opp_find_freq_ceil(crtc->dev->dev, &freq);
-		volt = dev_pm_opp_get_voltage(opp);
-		dev_pm_opp_put(opp);
-		ret = regulator_set_voltage(mm_freq_request, volt, INT_MAX);
-		if (ret)
-			DDPPR_ERR("%s:regulator_set_voltage fail\n", __func__);
+		if (!IS_ERR(opp)) {
+			volt = dev_pm_opp_get_voltage(opp);
+			dev_pm_opp_put(opp);
+			ret = regulator_set_voltage(mm_freq_request, volt, INT_MAX);
+			if (ret)
+				DDPPR_ERR("%s:regulator_set_voltage fail\n", __func__);
+		}
 	}
 }
 

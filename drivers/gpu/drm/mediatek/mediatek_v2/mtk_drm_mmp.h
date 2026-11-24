@@ -7,7 +7,9 @@
 #define __MTK_DRM_MMP_H__
 
 #include "mmprofile.h"
+#if IS_ENABLED(CONFIG_MMPROFILE)
 #include "mmprofile_function.h"
+#endif
 #include "mtk_drm_ddp.h"
 
 #define MMP_CRTC_NUM 4
@@ -328,6 +330,9 @@ long: (id >= 0 ? (unsigned long)id : ULONG_MAX) \
 #define CRTC_MMP_MARK(id, event, v1, v2) do { } while (0)
 #define CRTC_MMP_EVENT_START(id, event, v1, v2) do { } while (0)
 #define CRTC_MMP_EVENT_END(id, event, v1, v2) do { } while (0)
+#define CRTC_MMP_BITMAP_MARK(id, event, data) do { } while (0)
+#define CRTC_MMP_YUV_BITMAP_MARK(id, event, data) do { } while (0)
+#define CRTC_MMP_META_MARK(id, event, data) do { } while (0)
 #define PKT_MMP_MARK(id, event, v1, v2) do { } while (0)
 #define PKT_MMP_EVENT_START(id, event, v1, v2) do { } while (0)
 #define PKT_MMP_EVENT_END(id, event, v1, v2) do { } while (0)
