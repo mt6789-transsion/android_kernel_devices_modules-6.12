@@ -35,6 +35,9 @@ struct stCAM_CAL_LIST_STRUCT g_camCalList[] = {
     {MOT_TAIPEI_S5K3P9SP04_SENSOR_ID, 0xA2, Common_read_region, MAX_EEPROM_SIZE_16K},
     {MOT_TAIPEI_S5K4H7_SENSOR_ID, 0x5A, mot_taipei_s5k4h7_read_region},
 #else
+	/* X6837 sensors */
+	{S5KHM6SX_SENSOR_ID, 0xA0, Common_read_region, MAX_EEPROM_SIZE_16K},
+	{MOT_BOGOTA_GC32E1_SENSOR_ID, 0xA2, Common_read_region, MAX_EEPROM_SIZE_16K},
 	/*Below is commom sensor */
 	{HI1339_SENSOR_ID, 0xB0, Common_read_region},
 	{OV13B10LZ_SENSOR_ID, 0xB0, Common_read_region},
