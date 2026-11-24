@@ -50,8 +50,7 @@ void ili_resume_by_ddi(void)
 		return;
 
 	ILI_INFO("ili_resume_by_ddi start\n");
-	if (resume_by_ddi_wq)
-		queue_work(resume_by_ddi_wq, &resume_by_ddi_work);
+	ilitek_resume_by_ddi_work(NULL);
 }
 
 int ili_reset_ctrl(int mode)
