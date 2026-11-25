@@ -269,6 +269,7 @@ static bool pd_sta[MM_IOMMU_NUM];
 static bool apu_pm_sta[APU_IOMMU_NUM];
 static spinlock_t *tlb_locks[MM_IOMMU_NUM];
 static struct notifier_block mtk_pd_notifiers[MM_IOMMU_NUM];
+static struct mtk_iommu_data *mtk_pd_iommu_data[MM_IOMMU_NUM];
 static bool hypmmu_type2_en;
 static struct mutex init_mutexs[PGTBALE_NUM];
 static struct mutex group_mutexs[MTK_IOMMU_GROUP_MAX];
@@ -1845,6 +1846,17 @@ static int mtk_iommu_attach_device(struct iommu_domain *domain,
 		}
 		writel(dom->cfg.arm_v7s_cfg.ttbr, data->base + REG_MMU_PT_BASE_ADDR);
 
+		/* Snapshot initialized HW registers for genpd power-cycle restore */
+		data->reg.wr_len_ctrl = readl_relaxed(data->base + REG_MMU_WR_LEN_CTRL);
+		data->reg.misc_ctrl = readl_relaxed(data->base + REG_MMU_MISC_CTRL);
+		data->reg.dcm_dis = readl_relaxed(data->base + REG_MMU_DCM_DIS);
+		data->reg.ctrl_reg = readl_relaxed(data->base + REG_MMU_CTRL_REG);
+		data->reg.int_control0 = readl_relaxed(data->base + REG_MMU_INT_CONTROL0);
+		data->reg.int_main_control = readl_relaxed(data->base + REG_MMU_INT_MAIN_CONTROL);
+		data->reg.ivrp_paddr = readl_relaxed(data->base + REG_MMU_IVRP_PADDR);
+		data->reg.vld_pa_rng = readl_relaxed(data->base + REG_MMU_VLD_PA_RNG);
+		data->reg.tbw_id = readl_relaxed(data->base + REG_MMU_TBW_ID);
+
 		pr_info("%s, iommu_dev:%s(%d,%d), user_dev:%s, pgtable:0x%lx -- 0x%x -- 0x%x, tab_id:%d\n",
 			__func__, dev_name(data->dev), data->plat_data->iommu_type,
 			data->plat_data->iommu_id, dev_name(dev),
@@ -2357,13 +2369,96 @@ static const struct component_master_ops mtk_iommu_com_ops = {
 	.unbind		= mtk_iommu_unbind,
 };
 
+static void mtk_iommu_pd_save(struct mtk_iommu_data *iommu)
+{
+	struct mtk_iommu_suspend_reg *reg = &iommu->reg;
+	void __iomem *base = iommu->base;
+
+	if (!iommu->m4u_dom || MTK_IOMMU_HAS_FLAG(iommu->plat_data, PM_OPS_SKIP))
+		return;
+
+	if (MTK_IOMMU_HAS_FLAG(iommu->plat_data, HAS_BCLK)) {
+		if (clk_prepare_enable(iommu->bclk))
+			return;
+	}
+
+	if (readl_relaxed(base + REG_MMU_PT_BASE_ADDR) ==
+	    iommu->m4u_dom->cfg.arm_v7s_cfg.ttbr) {
+		reg->wr_len_ctrl = readl_relaxed(base + REG_MMU_WR_LEN_CTRL);
+		reg->misc_ctrl = readl_relaxed(base + REG_MMU_MISC_CTRL);
+		reg->dcm_dis = readl_relaxed(base + REG_MMU_DCM_DIS);
+		reg->ctrl_reg = readl_relaxed(base + REG_MMU_CTRL_REG);
+		reg->int_control0 = readl_relaxed(base + REG_MMU_INT_CONTROL0);
+		reg->int_main_control = readl_relaxed(base + REG_MMU_INT_MAIN_CONTROL);
+		reg->ivrp_paddr = readl_relaxed(base + REG_MMU_IVRP_PADDR);
+		reg->vld_pa_rng = readl_relaxed(base + REG_MMU_VLD_PA_RNG);
+		reg->tbw_id = readl_relaxed(base + REG_MMU_TBW_ID);
+
+#if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_SECURE)
+		if (MTK_IOMMU_HAS_FLAG(iommu->plat_data, IOMMU_SEC_EN))
+			mtk_iommu_secure_bk_backup_by_atf(
+				iommu->plat_data->iommu_type,
+				iommu->plat_data->iommu_id);
+#endif
+	}
+
+	if (MTK_IOMMU_HAS_FLAG(iommu->plat_data, HAS_BCLK))
+		clk_disable_unprepare(iommu->bclk);
+}
+
+static void mtk_iommu_pd_restore(struct mtk_iommu_data *iommu)
+{
+	struct mtk_iommu_suspend_reg *reg = &iommu->reg;
+	struct mtk_iommu_domain *m4u_dom = iommu->m4u_dom;
+	void __iomem *base = iommu->base;
+
+	if (!m4u_dom || MTK_IOMMU_HAS_FLAG(iommu->plat_data, PM_OPS_SKIP))
+		return;
+
+	if (MTK_IOMMU_HAS_FLAG(iommu->plat_data, HAS_BCLK)) {
+		if (clk_prepare_enable(iommu->bclk))
+			return;
+	}
+
+	if (readl_relaxed(base + REG_MMU_PT_BASE_ADDR) !=
+	    m4u_dom->cfg.arm_v7s_cfg.ttbr) {
+		writel_relaxed(reg->tbw_id, base + REG_MMU_TBW_ID);
+		writel_relaxed(reg->wr_len_ctrl, base + REG_MMU_WR_LEN_CTRL);
+		writel_relaxed(reg->misc_ctrl, base + REG_MMU_MISC_CTRL);
+		writel_relaxed(reg->dcm_dis, base + REG_MMU_DCM_DIS);
+		writel_relaxed(reg->ctrl_reg, base + REG_MMU_CTRL_REG);
+		writel_relaxed(reg->int_control0, base + REG_MMU_INT_CONTROL0);
+		writel_relaxed(reg->int_main_control, base + REG_MMU_INT_MAIN_CONTROL);
+		writel_relaxed(reg->ivrp_paddr, base + REG_MMU_IVRP_PADDR);
+		writel_relaxed(reg->vld_pa_rng, base + REG_MMU_VLD_PA_RNG);
+		writel(m4u_dom->cfg.arm_v7s_cfg.ttbr, base + REG_MMU_PT_BASE_ADDR);
+
+#if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_SECURE)
+		if (MTK_IOMMU_HAS_FLAG(iommu->plat_data, IOMMU_SEC_EN))
+			mtk_iommu_secure_bk_restore_by_atf(
+				iommu->plat_data->iommu_type,
+				iommu->plat_data->iommu_id);
+#endif
+		mtk_iommu_tlb_flush(iommu, false);
+	}
+
+	if (MTK_IOMMU_HAS_FLAG(iommu->plat_data, HAS_BCLK))
+		clk_disable_unprepare(iommu->bclk);
+}
+
 static int mtk_iommu_pd_callback(struct notifier_block *nb,
 			unsigned long flags, void *data)
 {
 	unsigned long lock_flags;
+	struct mtk_iommu_data *iommu;
 
-	if (nb->priority < 0)
+	if (nb->priority < 0 || nb->priority >= MM_IOMMU_NUM)
 		return NOTIFY_DONE;
+
+	iommu = mtk_pd_iommu_data[nb->priority];
+
+	if (flags == GENPD_NOTIFY_PRE_OFF && iommu)
+		mtk_iommu_pd_save(iommu);
 
 	spin_lock_irqsave(tlb_locks[nb->priority], lock_flags);
 
@@ -2373,6 +2468,9 @@ static int mtk_iommu_pd_callback(struct notifier_block *nb,
 		pd_sta[nb->priority] = POWER_OFF_STA;
 
 	spin_unlock_irqrestore(tlb_locks[nb->priority], lock_flags);
+
+	if (flags == GENPD_NOTIFY_ON && iommu)
+		mtk_iommu_pd_restore(iommu);
 
 #if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_DBG)
 	if (flags == GENPD_NOTIFY_ON || flags == GENPD_NOTIFY_PRE_OFF) {
@@ -2883,7 +2981,9 @@ static int mtk_iommu_probe(struct platform_device *pdev)
 		for (i = 0; i < MTK_IOMMU_GROUP_MAX; i++)
 			mutex_init(&group_mutexs[i]);
 
+#if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_DBG)
 		mtk_iommu_set_ops(&mtk_iommu_export_ops);
+#endif
 	}
 
 	/* Protect memory. HW will access here while translation fault.*/
@@ -3108,6 +3208,8 @@ out:
 
 	/* Get smi-common dev from the last larb. */
 	smicomm_node = of_parse_phandle(larbnode, "mediatek,smi-supply", 0);
+	if (!smicomm_node)
+		smicomm_node = of_parse_phandle(larbnode, "mediatek,smi", 0);
 	if (!smicomm_node) {
 		dev_err(dev, "%s, can't find smicomm_node phase1\n", __func__);
 		return -EINVAL;
@@ -3141,8 +3243,12 @@ repeat:
 				break; /* it is sub-common and goto find next node */
 		}
 		if (i < string_nr) {
+			struct device_node *next_node;
 			pr_info("%s, find next level node, dev:%s\n", __func__, dev_name(dev));
-			smicomm_node = of_parse_phandle(smicomm_node, "mediatek,smi-supply", 0);
+			next_node = of_parse_phandle(smicomm_node, "mediatek,smi-supply", 0);
+			if (!next_node)
+				next_node = of_parse_phandle(smicomm_node, "mediatek,smi", 0);
+			smicomm_node = next_node;
 			goto repeat;
 		}
 	}
@@ -3205,6 +3311,7 @@ skip_smi:
 
 		mtk_pd_notifiers[iommu_id].notifier_call = mtk_iommu_pd_callback;
 		mtk_pd_notifiers[iommu_id].priority = iommu_id;
+		mtk_pd_iommu_data[iommu_id] = data;
 
 		/* defaut power on,if larbs has the node "init-power-on" */
 		if (disp_power_on) {
@@ -3690,7 +3797,7 @@ static const struct mtk_iommu_plat_data mt6789_data = {
 	.flags         = HAS_SUB_COMM | OUT_ORDER_WR_EN | GET_DOM_ID_LEGACY |
 			 NOT_STD_AXI_MODE | IOVA_34_EN | SHARE_PGTABLE |
 			 IOMMU_SEC_EN | HAS_SMI_SUB_COMM | WR_THROT_EN |
-			 PGTABLE_PA_35_EN | HAS_BCLK,
+			 PGTABLE_PA_35_EN | HAS_BCLK | LEGACY_MULTI_LARB,
 	.inv_sel_reg   = REG_MMU_INV_SEL_GEN2,
 	.iommu_id	= DISP_IOMMU,
 	.iommu_type     = MM_IOMMU,
