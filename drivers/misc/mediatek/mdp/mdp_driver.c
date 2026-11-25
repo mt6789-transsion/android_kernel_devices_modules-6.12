@@ -1139,6 +1139,13 @@ void mdp_mme_init(void)
 #endif
 }
 
+static char *mdp_devnode(const struct device *dev, umode_t *mode)
+{
+	if (mode)
+		*mode = 0666;
+	return NULL;
+}
+
 static int cmdq_probe(struct platform_device *pDevice)
 {
 	int status;
@@ -1182,6 +1189,8 @@ static int cmdq_probe(struct platform_device *pDevice)
 	status = cdev_add(gMdpCDev, gMdpDevNo, 1);
 
 	gMDPClass = class_create(MDP_DRIVER_DEVICE_NAME);
+	if (!IS_ERR(gMDPClass))
+		gMDPClass->devnode = mdp_devnode;
 	object = device_create(gMDPClass, NULL, gMdpDevNo, NULL,
 		MDP_DRIVER_DEVICE_NAME);
 	if (IS_ERR(object)) {

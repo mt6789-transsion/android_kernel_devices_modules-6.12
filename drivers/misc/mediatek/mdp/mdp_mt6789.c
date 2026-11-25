@@ -6,6 +6,7 @@
 #include <linux/of_address.h>
 #include <linux/of_platform.h>
 #include <linux/pm_runtime.h>
+#include <x6837_of_compat.h>
 
 #include "cmdq_reg.h"
 #include "mdp_common.h"

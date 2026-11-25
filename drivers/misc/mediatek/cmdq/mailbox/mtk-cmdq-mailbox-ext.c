@@ -3717,7 +3717,8 @@ static int cmdq_probe(struct platform_device *pdev)
 	}
 
 #if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
-	cmdq_util_controller->track_ctrl(cmdq, cmdq->base_pa, false, hwid);
+	if (cmdq_util_controller && cmdq_util_controller->track_ctrl)
+		cmdq_util_controller->track_ctrl(cmdq, cmdq->base_pa, false, hwid);
 #endif
 	cmdq->prebuilt_clt = cmdq_mbox_create(&pdev->dev, 0);
 	cmdq->hw_trace_clt = cmdq_mbox_create(&pdev->dev, 1);

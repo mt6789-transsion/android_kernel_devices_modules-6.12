@@ -9,6 +9,8 @@
 #include "cmdq_helper_ext.h"
 #if IS_ENABLED(CONFIG_MMPROFILE)
 #include "mmprofile.h"
+#else
+typedef unsigned int mmp_event;
 #endif
 
 struct MDP_MMP_events_t {

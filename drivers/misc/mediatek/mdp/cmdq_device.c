@@ -21,6 +21,7 @@
 #include <linux/vmalloc.h>
 #include <linux/slab.h>
 #include <linux/clk-provider.h>
+#include <x6837_of_compat.h>
 
 struct CmdqDeviceStruct {
 	struct device *pDev;

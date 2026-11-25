@@ -62,6 +62,8 @@ s32 cmdqCoreRegisterCB(u32 engGroup,
 
 	if (!cmdq_core_is_valid_group_priv(engGroup))
 		return -EFAULT;
+	if (!cmdq_group_cb)
+		return -ENODEV;
 
 	CMDQ_MSG("Register %d group engines' callback\n", engGroup);
 	CMDQ_MSG("clockOn:%ps dumpInfo:%ps resetEng:%ps clockOff:%ps\n",

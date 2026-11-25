@@ -1594,28 +1594,22 @@ int cmdq_util_init(void)
 
 	np = of_find_node_by_name(NULL, node_name);
 	if (!np) {
-		cmdq_err("failed to find %s node", CMDQ_CONFIG_NODE_NAME);
-		cmdq_err("error end");
-		return -EINVAL;
+		cmdq_msg("no %s node in DT, defaulting to gce_core_num=1", CMDQ_CONFIG_NODE_NAME);
+		gce_core_num = 1;
+		memset(first_error_disable, 0, sizeof(first_error_disable));
+	} else {
+		ret = of_property_read_u32(np, "gce-core-num", &gce_core_num);
+		if (ret)
+			gce_core_num = 1;
+
+		cmdq_msg("%s core_num:%d", __func__, gce_core_num);
+
+		ret = of_property_read_u32_array(np, "cmdq-first-err-disable", first_error_disable, gce_core_num);
+		if (ret)
+			memset(first_error_disable, 0, sizeof(first_error_disable));
+
+		of_node_put(np);
 	}
-
-	ret = of_property_read_u32(np, "gce-core-num", &gce_core_num);
-	if (ret) {
-		cmdq_err("failed to read gce-core-num property");
-		cmdq_err("error end");
-		return -EINVAL;
-	}
-
-	cmdq_msg("%s core_num:%d", __func__, gce_core_num);
-
-	ret = of_property_read_u32_array(np, "cmdq-first-err-disable", first_error_disable, gce_core_num);
-	if (ret) {
-		cmdq_err("failed to read cmdq-first-err-disable property");
-		cmdq_err("error end");
-		return -EINVAL;
-	}
-
-	of_node_put(np);
 
 	for (i = 0; i < gce_core_num; i++) {
 		cmdq_msg("%s i:%u alloc:%u", __func__, i, first_error_disable[i]);
