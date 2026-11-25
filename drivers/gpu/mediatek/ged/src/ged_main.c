@@ -221,14 +221,12 @@ static long ged_dispatch(struct file *pFile,
 		if (GED_BRIDGE_COMMAND_GE_ALLOC ==
 				GED_GET_BRIDGE_ID(
 				psBridgePackageKM->ui32FunctionID)) {
-			inputBufferSize = sizeof(int) +
-			sizeof(uint32_t) * GE_ALLOC_STRUCT_NUM;
-			// hardcode region_num = GE_ALLOC_STRUCT_NUM,
-			// need check input buffer size
-			if (psBridgePackageKM->i32InBufferSize <
-				inputBufferSize) {
-				GED_LOGE("Failed to region_num, it must be %d\n",
-					GE_ALLOC_STRUCT_NUM);
+			int32_t maxInputSize = sizeof(int) +
+				sizeof(uint32_t) * GE_ALLOC_STRUCT_NUM;
+			if (inputBufferSize < (int32_t)(sizeof(int) + sizeof(uint32_t)) ||
+				inputBufferSize > maxInputSize) {
+				GED_LOGE("Failed to region_num, size=%d max=%d\n",
+					inputBufferSize, maxInputSize);
 				goto dispatch_exit;
 			}
 		}

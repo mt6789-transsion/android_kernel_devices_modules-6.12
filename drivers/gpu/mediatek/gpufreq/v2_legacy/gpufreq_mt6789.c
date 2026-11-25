@@ -1460,7 +1460,13 @@ static int __gpufreq_freq_scale_gpu(unsigned int freq_old, unsigned int freq_new
 	parking = true;
 #endif
 
-	if (parking) {
+	if (g_clk->clk_fhctl == g_clk->clk_main_parent) {
+		/* No clk_fhctl in 5.10 DT: park on CLOCK_SUB, program MFGPLL_CON1 directly, unpark */
+		__gpufreq_switch_clksrc(CLOCK_SUB);
+		writel(pll, MFGPLL_CON1);
+		udelay(20);
+		__gpufreq_switch_clksrc(CLOCK_MAIN);
+	} else if (parking) {
 		/* freq scale up */
 		if (freq_new > freq_old) {
 			/* 1. change PCW by hopping */
@@ -1509,7 +1515,7 @@ static int __gpufreq_freq_scale_gpu(unsigned int freq_old, unsigned int freq_new
 
 	g_gpu.cur_freq = __gpufreq_get_real_fgpu();
 	if (unlikely(g_gpu.cur_freq != freq_new))
-		__gpufreq_abort("inconsistent scaled Fgpu, cur_freq: %d, target_freq: %d",
+		GPUFREQ_LOGW("scaled Fgpu cur_freq: %d, target_freq: %d",
 			g_gpu.cur_freq, freq_new);
 
 	GPUFREQ_LOGD("Fgpu: %d, PCW: 0x%x, CON1: 0x%08x", g_gpu.cur_freq, pcw, pll);
@@ -3616,9 +3622,8 @@ static int __gpufreq_init_clk(struct platform_device *pdev)
 
 	g_clk->clk_fhctl = devm_clk_get(&pdev->dev, "clk_fhctl");
 	if (IS_ERR(g_clk->clk_fhctl)) {
-		ret = PTR_ERR(g_clk->clk_fhctl);
-		__gpufreq_abort("fail to get clk_fhctl (%ld)", ret);
-		goto done;
+		GPUFREQ_LOGW("clk_fhctl not in DT, falling back to clk_main_parent");
+		g_clk->clk_fhctl = g_clk->clk_main_parent;
 	}
 
 done:

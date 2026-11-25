@@ -3042,7 +3042,7 @@ static void __used kernel_thermal_hint(unsigned int *next_polling_duration)
 	for (i = 0; i < sizeof(vcore_sensor)/sizeof(struct TzInfo); i++) {
 		tz = thermal_zone_get_zone_by_name(vcore_sensor[i].name);
 		if(IS_ERR_OR_NULL(tz)) {
-			pr_info("%s: get %s thermal zone error\n", __func__, vcore_sensor[i].name);
+			pr_info_once("%s: get %s thermal zone error\n", __func__, vcore_sensor[i].name);
 			continue;
 		}
 

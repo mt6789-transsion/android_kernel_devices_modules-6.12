@@ -135,8 +135,9 @@ int ged_ge_alloc(int region_num, uint32_t *region_sizes)
 		goto err_entry_file;
 	}
 
-	/* Avoid using the unpredictable value for Fuzzing */
-	region_num = GE_ALLOC_STRUCT_NUM;
+	/* Accept legacy Android 13 vendor region_num (e.g. 16..22) safely */
+	if (region_num <= 0 || region_num > GE_ALLOC_STRUCT_NUM)
+		goto err_entry_file;
 
 	entry->region_num = region_num;
 	entry->data =
