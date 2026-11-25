@@ -13,6 +13,7 @@
 #include <linux/vmalloc.h>
 #include "scp_helper.h"
 #include "sap.h"
+#include <x6837_of_compat.h>
 
 enum {
 	REG_WDT_IRQ,

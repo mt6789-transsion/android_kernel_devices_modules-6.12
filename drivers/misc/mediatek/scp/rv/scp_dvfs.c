@@ -50,6 +50,17 @@
 #include "scp_excep.h"
 #include "scp_dvfs.h"
 #include "scp.h"
+#include <x6837_of_compat.h>
+
+static inline struct regmap *x6837_syscon_by_phandle(struct device_node *np,
+						     const char *prop)
+{
+	char buf[96];
+
+	return syscon_regmap_lookup_by_phandle(
+		np, x6837_of_prop(np, prop, buf, sizeof(buf)));
+}
+#define syscon_regmap_lookup_by_phandle x6837_syscon_by_phandle
 
 #ifdef pr_fmt
 #undef pr_fmt
@@ -815,11 +826,11 @@ void wait_scp_dvfs_init_done(void)
 	int count = 0;
 
 	while (atomic_read(&g_scp_dvfs_init_done) != 1) {
-		mdelay(1);
+		msleep(1);
 		count++;
-		if (count > 3000) {
-			pr_notice("SCP dvfs driver init fail\n");
-			WARN_ON(1);
+		if (count > 1000) {
+			pr_notice("SCP dvfs driver init fail (timeout)\n");
+			break;
 		}
 	}
 }
@@ -1391,6 +1402,7 @@ static int mt_scp_dvfs_create_procfs(void)
 
 static const struct of_device_id scpdvfs_of_ids[] = {
 	{.compatible = "mediatek,scp-dvfs",},
+	{.compatible = "mediatek,scp_dvfs",},
 	{}
 };
 
@@ -2145,8 +2157,10 @@ static int __init mt_scp_dts_get_cali_hw_regs(struct device_node *node,
 	/* find the version of ulposc calibration algorithm */
 	ret = of_property_read_u32(node, PROPNAME_U2_CALI_ALG_VER,
 		&cali_hw->cali_alg_ver);
-	if (ret)
+	if (ret) {
 		cali_hw->cali_alg_ver = U2_CALI_ALG_V0; /* as default version */
+		ret = 0;
+	}
 	if (cali_hw->cali_alg_ver >= U2_CALI_ALG_MAX) {
 		pr_notice("[%s] Unknown cali algorithm: %u\n",
 				__func__, g_dvfs_dev.ulposc_hw.cali_alg_ver);
@@ -2666,8 +2680,11 @@ static int __init mt_scp_dts_fmeter_get(struct device_node *node,
 	/* get fmeter id & fmeter type from dts */
 	ret = of_property_read_u32_array(node, propname, fmeter_args, SCP_FM_MAX);
 	if (ret) {
-		pr_err("[%s] Can't read %s\n", __func__, propname);
-		goto FINISH;
+		pr_notice("[%s] Optional %s absent, defaulting to MT6789 ULPOSC2 (id=36, ABIST=1)\n",
+			__func__, propname);
+		*fm_idx = 36; /* FM_ULPOSC2_CK on MT6789 */
+		*fm_type = 1; /* ABIST */
+		return 0;
 	}
 
 	/* check & save fmeter id & type */
@@ -2699,7 +2716,7 @@ static int __init mt_scp_dts_init(struct platform_device *pdev)
 	}
 
 	ret = of_property_read_u32(node, PROPNAME_SCP_DVFS_DISABLE, &is_scp_dvfs_disable);
-	if (ret || is_scp_dvfs_disable == 1) {
+	if (!ret && is_scp_dvfs_disable == 1) {
 		pr_notice("SCP DVFS is disabled, so bypass its init\n");
 		return 0;
 	}
@@ -2812,9 +2829,10 @@ static int __init mt_scp_dts_init(struct platform_device *pdev)
 	/* init ulposc cali dts data */
 	ret = mt_scp_dts_ulposc_cali_init(node, &g_dvfs_dev.ulposc_hw);
 	if (ret) {
-		pr_notice("[%s]: init scp ulposc cali data with err: %d\n",
+		pr_notice("[%s]: init scp ulposc cali data with err: %d (optional, skip)\n",
 			__func__, ret);
-		goto DTS_FAILED_FREE_RES;
+		g_dvfs_dev.ulposc_hw.do_ulposc_cali = false;
+		ret = 0;
 	}
 
 	if (!g_dvfs_dev.vlp_support) {
@@ -2948,6 +2966,8 @@ static int __init mt_scp_dvfs_pdrv_probe(struct platform_device *pdev)
 	return 0;
 
 DTS_INIT_FAILED:
+	atomic_set(&g_is_scp_dvfs_feature_enable, 0);
+	atomic_set(&g_scp_dvfs_init_done, 1);
 	WARN_ON(1);
 
 	return -ESCP_DVFS_INIT_FAILED;

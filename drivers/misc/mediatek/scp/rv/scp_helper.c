@@ -66,6 +66,7 @@
 
 #include "scp_low_pwr_dbg.h"
 #include "scp_tmon_dbg.h"
+#include <x6837_of_compat.h>
 
 /* scp semaphore timeout count definition */
 #define SEMAPHORE_TIMEOUT 5000
@@ -1794,8 +1795,11 @@ static int scp_reserve_memory_ioremap(struct platform_device *pdev)
 		pr_notice("@@@@ reserved: <%d  %x  %x>\n", m_idx, m_size, m_alignment);
 	}
 
-	scp_mem_base_virt = (phys_addr_t)(size_t)ioremap_wc(scp_mem_base_phys,
-		scp_mem_size);
+	scp_mem_base_virt = (phys_addr_t)(size_t)memremap(scp_mem_base_phys,
+		scp_mem_size, MEMREMAP_WC);
+	if (!scp_mem_base_virt)
+		scp_mem_base_virt = (phys_addr_t)(size_t)ioremap_wc(scp_mem_base_phys,
+			scp_mem_size);
 	pr_debug("[SCP] rsrv_phy_base = 0x%llx, len:0x%llx\n",
 		(uint64_t)scp_mem_base_phys, (uint64_t)scp_mem_size);
 	pr_debug("[SCP] rsrv_vir_base = 0x%llx, len:0x%llx\n",
@@ -2380,9 +2384,13 @@ void scp_recovery_init(void)
 	INIT_WORK(&scp_sys_reset_work.work, scp_sys_reset_ws);
 
 	if(!scpreg.secure_dump) {
-		scp_loader_virt = ioremap_wc(
+		scp_loader_virt = memremap(
 			scp_region_info_copy.ap_loader_start,
-			scp_region_info_copy.ap_loader_size);
+			scp_region_info_copy.ap_loader_size, MEMREMAP_WC);
+		if (!scp_loader_virt)
+			scp_loader_virt = ioremap_wc(
+				scp_region_info_copy.ap_loader_start,
+				scp_region_info_copy.ap_loader_size);
 		pr_notice("[SCP] loader image mem: virt:0x%llx - 0x%llx\n",
 			(uint64_t)(phys_addr_t)scp_loader_virt,
 			(uint64_t)(phys_addr_t)scp_loader_virt +
@@ -2396,18 +2404,28 @@ void scp_recovery_init(void)
 	/* init reset by cmd flag */
 	scp_reset_by_cmd = 0;
 
-	scp_regdump_virt = ioremap(
-			scp_region_info_copy.regdump_start,
-			scp_region_info_copy.regdump_size);
+	if (scp_region_info_copy.regdump_start && scp_region_info_copy.regdump_size) {
+		scp_regdump_virt = memremap(
+				scp_region_info_copy.regdump_start,
+				scp_region_info_copy.regdump_size, MEMREMAP_WC);
+		if (!scp_regdump_virt)
+			scp_regdump_virt = ioremap(
+					scp_region_info_copy.regdump_start,
+					scp_region_info_copy.regdump_size);
+	}
 	pr_debug("[SCP] scp_regdump_virt map: 0x%x + 0x%x\n",
 		scp_region_info_copy.regdump_start,
 		scp_region_info_copy.regdump_size);
 
 	if ((int)(scp_region_info_copy.ap_dram_size) > 0) {
 		/*if l1c enable, map it (include backup) */
-		scp_ap_dram_virt = ioremap_wc(
-		scp_region_info_copy.ap_dram_start,
-		ROUNDUP(scp_region_info_copy.ap_dram_size, 1024)*4);
+		scp_ap_dram_virt = memremap(
+			scp_region_info_copy.ap_dram_start,
+			ROUNDUP(scp_region_info_copy.ap_dram_size, 1024)*4, MEMREMAP_WC);
+		if (!scp_ap_dram_virt)
+			scp_ap_dram_virt = ioremap_wc(
+			scp_region_info_copy.ap_dram_start,
+			ROUNDUP(scp_region_info_copy.ap_dram_size, 1024)*4);
 
 	pr_notice("[SCP] scp_ap_dram_virt map: 0x%x + 0x%x\n",
 		scp_region_info_copy.ap_dram_start,

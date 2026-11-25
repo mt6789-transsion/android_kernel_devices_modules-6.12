@@ -28,6 +28,7 @@
 #include "scp_reservedmem_define.h"
 #endif
 #include "sap.h"
+#include <x6837_of_compat.h>
 
 #define SCP_SECURE_DUMP_MEASURE 0
 #define POLLING_RETRY 400
