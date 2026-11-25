@@ -14,7 +14,7 @@
 #include <linux/mm.h>
 #include <linux/dma-mapping.h>
 
-#include "mtk-cmdq-ext.h"
+#include <linux/soc/mediatek/mtk-cmdq-ext.h>
 #ifdef CMDQ_SEC_SUPPORT
 #include "mailbox/cmdq-sec.h"
 #endif
