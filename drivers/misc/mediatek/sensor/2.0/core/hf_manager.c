@@ -1525,7 +1525,7 @@ static long hf_manager_ioctl_request_register(struct file *filp,
 	void __user *ubuf = (void __user *)arg;
 	struct common_packet packet;
 
-	if (size != sizeof(packet))
+	if (size != sizeof(packet) && size != 68)
 		return -EINVAL;
 	if (copy_from_user(&packet, ubuf, sizeof(packet)))
 		return -EFAULT;
@@ -1546,7 +1546,7 @@ static long hf_manager_ioctl_request_bias(struct file *filp,
 	void __user *ubuf = (void __user *)arg;
 	struct common_packet packet;
 
-	if (size != sizeof(packet))
+	if (size != sizeof(packet) && size != 68)
 		return -EINVAL;
 	if (copy_from_user(&packet, ubuf, sizeof(packet)))
 		return -EFAULT;
@@ -1565,7 +1565,7 @@ static long hf_manager_ioctl_request_cali(struct file *filp,
 	void __user *ubuf = (void __user *)arg;
 	struct common_packet packet;
 
-	if (size != sizeof(packet))
+	if (size != sizeof(packet) && size != 68)
 		return -EINVAL;
 	if (copy_from_user(&packet, ubuf, sizeof(packet)))
 		return -EFAULT;
@@ -1584,7 +1584,7 @@ static long hf_manager_ioctl_request_temp(struct file *filp,
 	void __user *ubuf = (void __user *)arg;
 	struct common_packet packet;
 
-	if (size != sizeof(packet))
+	if (size != sizeof(packet) && size != 68)
 		return -EINVAL;
 	if (copy_from_user(&packet, ubuf, sizeof(packet)))
 		return -EFAULT;
@@ -1603,7 +1603,7 @@ static long hf_manager_ioctl_request_test(struct file *filp,
 	void __user *ubuf = (void __user *)arg;
 	struct common_packet packet;
 
-	if (size != sizeof(packet))
+	if (size != sizeof(packet) && size != 68)
 		return -EINVAL;
 	if (copy_from_user(&packet, ubuf, sizeof(packet)))
 		return -EFAULT;
@@ -1622,7 +1622,7 @@ static long hf_manager_ioctl_request_info(struct file *filp,
 	void __user *ubuf = (void __user *)arg;
 	struct info_packet packet;
 
-	if (size != sizeof(packet))
+	if (size != sizeof(packet) && size != 68)
 		return -EINVAL;
 	if (copy_from_user(&packet, ubuf, sizeof(packet)))
 		return -EFAULT;
@@ -1647,7 +1647,7 @@ static long hf_manager_ioctl_request_cust_cmd(struct file *filp,
 	void __user *ubuf = (void __user *)arg;
 	struct cust_packet packet;
 
-	if (size != sizeof(packet))
+	if (size != sizeof(packet) && size != 68)
 		return -EINVAL;
 	if (copy_from_user(&packet, ubuf, sizeof(packet)))
 		return -EFAULT;
@@ -1672,7 +1672,7 @@ static long hf_manager_ioctl_request_ready(struct file *filp,
 	struct common_packet packet;
 	struct hf_device *device = NULL;
 
-	if (size != sizeof(packet))
+	if (size != sizeof(packet) && size != 68)
 		return -EINVAL;
 	if (copy_from_user(&packet, ubuf, sizeof(packet)))
 		return -EFAULT;
@@ -1703,7 +1703,7 @@ static long hf_manager_ioctl_request_debug(struct file *filp,
 	void __user *ubuf = (void __user *)arg;
 	void *rx_buf = NULL;
 
-	if (size != sizeof(packet))
+	if (size != sizeof(packet) && size != 68)
 		return -EINVAL;
 	if (copy_from_user(&packet, ubuf, sizeof(packet)))
 		return -EFAULT;
@@ -1747,7 +1747,7 @@ static long hf_manager_ioctl_request_cust_data(struct file *filp,
 	void *tx_buf = NULL, *rx_buf = NULL;
 	uint8_t tx_len = 0, rx_len = 0;
 
-	if (size != sizeof(packet))
+	if (size != sizeof(packet) && size != 68)
 		return -EINVAL;
 	if (copy_from_user(&packet, ubuf, sizeof(packet)))
 		return -EFAULT;
@@ -1799,26 +1799,31 @@ err_out:
 static long hf_manager_ioctl(struct file *filp,
 			unsigned int cmd, unsigned long arg)
 {
-	switch (cmd) {
-	case HF_MANAGER_REQUEST_REGISTER_STATUS:
+	if (_IOC_TYPE(cmd) != 'a') {
+		pr_err("Unknown command %u\n", cmd);
+		return -EINVAL;
+	}
+
+	switch (_IOC_NR(cmd)) {
+	case _IOC_NR(HF_MANAGER_REQUEST_REGISTER_STATUS):
 		return hf_manager_ioctl_request_register(filp, cmd, arg);
-	case HF_MANAGER_REQUEST_BIAS_DATA:
+	case _IOC_NR(HF_MANAGER_REQUEST_BIAS_DATA):
 		return hf_manager_ioctl_request_bias(filp, cmd, arg);
-	case HF_MANAGER_REQUEST_CALI_DATA:
+	case _IOC_NR(HF_MANAGER_REQUEST_CALI_DATA):
 		return hf_manager_ioctl_request_cali(filp, cmd, arg);
-	case HF_MANAGER_REQUEST_TEMP_DATA:
+	case _IOC_NR(HF_MANAGER_REQUEST_TEMP_DATA):
 		return hf_manager_ioctl_request_temp(filp, cmd, arg);
-	case HF_MANAGER_REQUEST_TEST_DATA:
+	case _IOC_NR(HF_MANAGER_REQUEST_TEST_DATA):
 		return hf_manager_ioctl_request_test(filp, cmd, arg);
-	case HF_MANAGER_REQUEST_SENSOR_INFO:
+	case _IOC_NR(HF_MANAGER_REQUEST_SENSOR_INFO):
 		return hf_manager_ioctl_request_info(filp, cmd, arg);
-	case HF_MANAGER_REQUEST_CUST_CMD:
+	case _IOC_NR(HF_MANAGER_REQUEST_CUST_CMD):
 		return hf_manager_ioctl_request_cust_cmd(filp, cmd, arg);
-	case HF_MANAGER_REQUEST_READY_STATUS:
+	case _IOC_NR(HF_MANAGER_REQUEST_READY_STATUS):
 		return hf_manager_ioctl_request_ready(filp, cmd, arg);
-	case HF_MANAGER_REQUEST_DEBUG_INFO:
+	case _IOC_NR(HF_MANAGER_REQUEST_DEBUG_INFO):
 		return hf_manager_ioctl_request_debug(filp, cmd, arg);
-	case HF_MANAGER_REQUEST_CUST_DATA:
+	case _IOC_NR(HF_MANAGER_REQUEST_CUST_DATA):
 		return hf_manager_ioctl_request_cust_data(filp, cmd, arg);
 	default:
 		pr_err("Unknown command %u\n", cmd);

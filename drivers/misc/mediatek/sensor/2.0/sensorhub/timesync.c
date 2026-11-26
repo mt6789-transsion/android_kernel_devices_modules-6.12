@@ -107,18 +107,7 @@ static int timesync_comm_with_nolock(void)
 
 	time->host_timestamp = now_time;
 	time->host_archcounter = arch_counter;
-	time->sched_clock = schedclock;
-	real_time.tv_sec -= (uint64_t)sys_tz.tz_minuteswest * 60;
-	rtc_time64_to_tm(real_time.tv_sec, &android_time);
-	time->usecond = real_time.tv_nsec / 1000;
-	time->second = android_time.tm_sec;
-	time->minute = android_time.tm_min;
-	time->hour = android_time.tm_hour;
-	time->day = android_time.tm_mday;
-	time->month = android_time.tm_mon + 1;
-	pr_info("boot %lld sched %lld android %02d-%02d %02d:%02d:%02d.%06d\n",
-		now_time, schedclock, time->month, time->day, time->hour,
-		time->minute, time->second, time->usecond);
+	pr_info("host boottime %lld arch %lld\n", now_time, arch_counter);
 	ret = sensor_comm_ctrl_send(ctrl, sizeof(*ctrl) + ctrl->length);
 	kfree(ctrl);
 
