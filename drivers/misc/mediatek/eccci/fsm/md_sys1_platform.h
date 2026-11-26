@@ -144,8 +144,8 @@ enum {
 	SRCLKEN_O1_BIT,
 	REVERT_SEQUENCER_BIT,
 	MD_PLL_SETTING,
-	MD_DPSW_SETTING,
-	TOP_CLK_GEN_ON,
+	TOP_CLK_GEN_ON,   /* bit 4 (0x10): matches MT6789 stock DTB power_flow_config=0x12 */
+	MD_DPSW_SETTING,  /* bit 5 (0x20) */
 	VMD_EXT_ISO_EN,
 };
 

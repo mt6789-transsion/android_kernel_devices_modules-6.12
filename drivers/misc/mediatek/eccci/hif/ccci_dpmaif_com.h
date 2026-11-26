@@ -558,6 +558,7 @@ u32 get_ringbuf_release_cnt(u32 len, u32 rel_idx, u32 rd_idx);
 
 void ccci_dpmaif_txq_release_skb(struct dpmaif_tx_queue *txq, unsigned int release_cnt);
 
+extern struct regmap *syscon_regmap_lookup_by_compatible(const char *s);
 extern struct regmap *syscon_regmap_lookup_by_phandle(
 		struct device_node *np, const char *property);
 

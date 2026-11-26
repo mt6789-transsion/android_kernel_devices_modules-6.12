@@ -720,6 +720,20 @@ int mtk_ccci_md_smem_layout_init(void)
 	s_md_gen = 6297;
 	ret = mtk_ccci_find_args_val("md_generation",  (unsigned char *)&s_md_gen,
 			sizeof(unsigned int));
+	if (ret <= 0) {
+		struct device_node *md_node =
+			of_find_compatible_node(NULL, NULL, "mediatek,mddriver");
+		if (md_node) {
+			if (of_property_read_u32(md_node, "mediatek,md-generation", &s_md_gen) &&
+			    of_property_read_u32(md_node, "mediatek,md_generation", &s_md_gen))
+				pr_info("ccci: %s :get md generation from DT fail\n", __func__);
+			else {
+				pr_info("ccci: %s :get md generation from DT: %u\n", __func__, s_md_gen);
+				ret = sizeof(unsigned int);
+			}
+			of_node_put(md_node);
+		}
+	}
 	if(s_md_gen < 6295) {
 		pr_info("ccci: %s : gen93 bypass init smem layout in util\n", __func__);
 		return 0;

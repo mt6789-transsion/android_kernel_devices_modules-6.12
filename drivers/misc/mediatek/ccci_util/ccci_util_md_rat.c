@@ -397,9 +397,11 @@ int set_soc_md_rt_rat_str(char str[])
 	id = get_rat_id_by_bitmap(cap);
 
 	if (id == 0) {
-		pr_info("CCCI: %s: should not run to here. MD cap not in support list!\n",
-			__func__);
-		return -1;
+		cap = (MD_CAP_FDD_LTE | MD_CAP_TDD_LTE | MD_CAP_WCDMA |
+		       MD_CAP_CDMA2000 | MD_CAP_TDS_CDMA | MD_CAP_GSM);
+		id = get_rat_id_by_bitmap(cap);
+		pr_info("CCCI: %s: fallback MD cap=0x%x id=%u\n",
+			__func__, cap, id);
 	}
 
 	if (!str) {

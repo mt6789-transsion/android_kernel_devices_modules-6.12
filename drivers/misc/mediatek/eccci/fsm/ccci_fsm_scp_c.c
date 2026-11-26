@@ -19,6 +19,7 @@
 
 #ifdef FEATURE_SCP_CCCI_SUPPORT
 #include "scp_ipi.h"
+#include <x6837_of_compat.h>
 
 static struct ccci_clk_node scp_clk_table[] = {
 	{ NULL, "infra-ccif2-ap"},

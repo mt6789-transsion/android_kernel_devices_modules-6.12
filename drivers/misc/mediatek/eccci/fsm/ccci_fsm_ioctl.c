@@ -19,6 +19,7 @@
 
 #include "ccci_auxadc.h"
 #include "ccci_fsm_internal.h"
+#include <x6837_of_compat.h>
 #include "modem_sys.h"
 #include "md_sys1_platform.h"
 

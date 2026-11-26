@@ -29,7 +29,7 @@
 #if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 #include <mt-plat/aee.h>
 #endif
-#if IS_ENABLED(CONFIG_MTK_PBM)
+#if 1 /* X6837: mtk_mdpm is built as OOT module; init AP2MD1 section in DBM SMEM */
 #include "mtk_pbm.h"
 #include "mtk_mdpm.h"
 #endif
@@ -481,7 +481,7 @@ static void md_cd_smem_sub_region_init_old(struct ccci_modem *md)
 	addr[i++] = 0x44444444; /* Guard pattern 1 tail */
 	addr[i++] = 0x44444444; /* Guard pattern 2 tail */
 
-#if IS_ENABLED(CONFIG_MTK_PBM)
+#if 1 /* X6837: mtk_mdpm */
 	addr += CCCI_SMEM_SIZE_DBM_GUARD;
 	init_md_section_level(KR_MD1, addr);
 #endif
@@ -489,7 +489,7 @@ static void md_cd_smem_sub_region_init_old(struct ccci_modem *md)
 
 static void md_cd_smem_sub_region_init_new(struct ccci_modem *md)
 {
-#if IS_ENABLED(CONFIG_MTK_PBM)
+#if 1 /* X6837: mtk_mdpm */
 	int __iomem *addr;
 	struct ccci_smem_region *dbm =
 		ccci_md_get_smem_by_user_id(SMEM_USER_RAW_DBM);

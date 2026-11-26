@@ -43,6 +43,7 @@
 #if IS_ENABLED(CONFIG_MTK_PBM)
 #include "mtk_pbm.h"
 #endif
+#include <x6837_of_compat.h>
 
 extern atomic_t md_ee_occurred;
 
@@ -469,6 +470,17 @@ static void md1_pmic_setting_init(struct platform_device *plat_dev)
 		md_reg_table[idx].reg_ref =
 			devm_regulator_get_optional(&plat_dev->dev,
 			md_reg_table[idx].reg_name);
+		if (IS_ERR_OR_NULL(md_reg_table[idx].reg_ref)) {
+			char alt[64];
+			size_t k;
+
+			for (k = 0; k < sizeof(alt) - 1 && md_reg_table[idx].reg_name[k]; k++)
+				alt[k] = (md_reg_table[idx].reg_name[k] == '-') ?
+					'_' : md_reg_table[idx].reg_name[k];
+			alt[k] = '\0';
+			md_reg_table[idx].reg_ref =
+				devm_regulator_get_optional(&plat_dev->dev, alt);
+		}
 		/* get regulator fail and set reg_vol=0 */
 		if (IS_ERR(md_reg_table[idx].reg_ref)) {
 			ret = PTR_ERR(md_reg_table[idx].reg_ref);
@@ -2778,6 +2790,10 @@ static int md_cd_get_modem_hw_info(struct platform_device *dev_ptr,
 	md_cd_plat_val_ptr.spm_sleep_base =
 			syscon_regmap_lookup_by_phandle(dev_ptr->dev.of_node,
 			"ccci-spmsleep");
+	if (IS_ERR(md_cd_plat_val_ptr.spm_sleep_base))
+		md_cd_plat_val_ptr.spm_sleep_base =
+			syscon_regmap_lookup_by_phandle(dev_ptr->dev.of_node,
+			"ccci_spmsleep");
 	if (IS_ERR(md_cd_plat_val_ptr.spm_sleep_base))
 		CCCI_ERROR_LOG(0, TAG,
 			"%s: get spm_sleep_base reg failed\n",

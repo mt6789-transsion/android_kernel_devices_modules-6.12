@@ -47,6 +47,7 @@
 #include "md_spd_dvfs_method.h"
 #include "ccci_hif_internal.h"
 #include "ccmni.h"
+#include <x6837_of_compat.h>
 
 
 //rxq push thread flush gro list time, 2ms
@@ -3238,6 +3239,8 @@ static int dpmaif_init_register(struct device *dev)
 	struct device_node *node = dev->of_node;
 
 	g_dpmaif_ctrl->infra_ao_base = syscon_regmap_lookup_by_phandle(node, "dpmaif-infracfg");
+	if (IS_ERR(g_dpmaif_ctrl->infra_ao_base))
+		g_dpmaif_ctrl->infra_ao_base = syscon_regmap_lookup_by_compatible("mediatek,infracfg_ao");
 	if (IS_ERR(g_dpmaif_ctrl->infra_ao_base)) {
 		CCCI_ERROR_LOG(0, TAG,
 			"[%s] error: No dpmaif-infracfg register in dtsi.\n", __func__);
@@ -3515,7 +3518,9 @@ static int dpmaif_probe(struct platform_device *pdev)
 	}
 
 	if (of_property_read_u32(pdev->dev.of_node,
-			"mediatek,plat-info", &g_plat_inf))
+			"mediatek,plat-info", &g_plat_inf) &&
+	    of_property_read_u32(pdev->dev.of_node,
+			"mediatek,chip-info", &g_plat_inf))
 		g_plat_inf = DEFAULT_PLAT_INF;
 
 	CCCI_NORMAL_LOG(0, TAG,

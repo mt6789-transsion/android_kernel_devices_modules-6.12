@@ -38,6 +38,7 @@
 #include "port_ctlmsg.h"
 #include "port_proxy.h"
 #include "port_udc.h"
+#include <x6837_of_compat.h>
 
 #define TAG PORT
 #define CCCI_DEV_NAME "ccci"

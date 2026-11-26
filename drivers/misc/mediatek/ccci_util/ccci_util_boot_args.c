@@ -13,6 +13,7 @@
 #include <linux/skbuff.h>
 #include <linux/of.h>
 #include <linux/of_fdt.h>
+#include <x6837_of_compat.h>
 
 #include "mt-plat/mtk_ccci_common.h"
 #include "ccci_util_log.h"

@@ -26,6 +26,7 @@
 #include <linux/etherdevice.h>
 #include <linux/ip.h>
 #include <linux/of.h>
+#include <x6837_of_compat.h>
 #include <linux/tcp.h>
 #include <linux/if_arp.h>
 #include <linux/ipv6.h>
@@ -1221,9 +1222,11 @@ static int ccmni_get_capability_from_dts_node(unsigned int hw_type)
 		node = of_find_compatible_node(NULL, NULL, "mediatek,dpmaif");
 		if (node) {
 			ret = of_property_read_u32(node, "mediatek,dpmaif-cap", &capability);
+			if (ret < 0)
+				ret = of_property_read_u32(node, "mediatek,dpmaif_cap", &capability);
 			if (ret < 0) {
-				pr_info("cannot find dpmaif-cap in dts node\n");
-				return -1;
+				pr_info("cannot find dpmaif-cap in dts node, fallback 0\n");
+				capability = 0;
 			}
 			return capability;
 		}
@@ -1251,9 +1254,11 @@ static int ccmni_get_capability_from_dts(void)
 	node = of_find_compatible_node(NULL, NULL, "mediatek,mddriver");
 	if (node) {
 		ret = of_property_read_u32(node, "mediatek,mdhif-type", &hw_type);
+		if (ret < 0)
+			ret = of_property_read_u32(node, "mediatek,mdhif_type", &hw_type);
 		if (ret < 0) {
-			pr_info("cannot find mdhif-type in dts file\n");
-			return -1;
+			pr_info("cannot find mdhif-type in dts file, fallback hw_type=5\n");
+			hw_type = 5;
 		}
 		return ccmni_get_capability_from_dts_node(hw_type);
 	}
