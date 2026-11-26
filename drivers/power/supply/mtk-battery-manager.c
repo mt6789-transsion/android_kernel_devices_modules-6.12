@@ -714,6 +714,8 @@ void bm_check_bootmode(struct device *dev,
 
 	boot_node = of_parse_phandle(dev->of_node, "bootmode", 0);
 	if (!boot_node)
+		boot_node = of_find_node_by_path("/chosen");
+	if (!boot_node)
 		pr_err("%s: failed to get boot mode phandle\n", __func__);
 	else {
 		tag = (struct tag_bootmode *)of_get_property(boot_node,
@@ -1153,10 +1155,50 @@ static int bs_psy_get_property(struct power_supply *psy,
 			break;
 		}
 
-		if (bm->gm1->fixed_uisoc != 0xffff)
+		if (bm->gm1->fixed_uisoc != 0xffff) {
 			val->intval = bm->gm1->fixed_uisoc;
-		else
+		} else if (bs_data->bat_capacity > 0) {
 			val->intval = bs_data->bat_capacity;
+		} else if (bm->gm1 != NULL) {
+			static int last_soc = -1;
+			static unsigned long last_jiffies;
+			int vbat = bm_update_psy_property(bm->gm1, VOLTAGE_NOW);
+			int ibat_01ma = bm_update_psy_property(bm->gm1, CURRENT_NOW);
+			/* Compensate ~85 mOhm internal resistance so load spikes don't sag SOC */
+			int ocv = vbat - (ibat_01ma * 85) / 10000;
+			static const int ocv_mv[] = { 3400, 3600, 3680, 3740, 3800, 3880, 3980, 4100, 4220, 4330, 4400 };
+			static const int ocv_pct[] = {   0,   10,   20,   30,   40,   50,   65,   80,   90,   97,  100 };
+			int k, soc = 50;
+
+			if (ocv <= ocv_mv[0]) {
+				soc = 1;
+			} else if (ocv >= ocv_mv[10]) {
+				soc = 100;
+			} else {
+				for (k = 0; k < 10; k++) {
+					if (ocv >= ocv_mv[k] && ocv <= ocv_mv[k + 1]) {
+						soc = ocv_pct[k] + (ocv - ocv_mv[k]) *
+							(ocv_pct[k + 1] - ocv_pct[k]) /
+							(ocv_mv[k + 1] - ocv_mv[k]);
+						break;
+					}
+				}
+			}
+			soc = clamp(soc, 1, 100);
+			if (last_soc < 0) {
+				last_soc = soc;
+				last_jiffies = jiffies;
+			} else if (time_after(jiffies, last_jiffies + 15 * HZ)) {
+				if (soc > last_soc)
+					last_soc++;
+				else if (soc < last_soc)
+					last_soc--;
+				last_jiffies = jiffies;
+			}
+			val->intval = last_soc;
+		} else {
+			val->intval = 50;
+		}
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_NOW:
 
@@ -1504,7 +1546,9 @@ void bm_battery_service_init(struct mtk_battery_manager *bm)
 
 	bm->bs_data.psy =
 	power_supply_register(
-		bm->dev, &bm->bs_data.psd, &bm->bs_data.psy_cfg);
+		(!bm->dev->of_node && bm->gm1 && bm->gm1->gauge && bm->gm1->gauge->pdev) ?
+			&bm->gm1->gauge->pdev->dev : bm->dev,
+		&bm->bs_data.psd, &bm->bs_data.psy_cfg);
 	if (IS_ERR(bm->bs_data.psy))
 		pr_err("[BAT_probe] power_supply_register Battery Fail !!\n");
 
@@ -1639,7 +1683,9 @@ static void mtk_battery_manager_handler(struct mtk_battery_manager *bm, void *nl
 
 	//msleep(3000);
 	//mdelay(3000);
-	if (msg->instance_id == 0)
+	if (bm->gm_no == 1)
+		gm = bm->gm1;
+	else if (msg->instance_id == 0)
 		gm = bm->gm1;
 	else if (msg->instance_id == 1)
 		gm = bm->gm2;
@@ -1659,7 +1705,7 @@ static void mtk_battery_manager_handler(struct mtk_battery_manager *bm, void *nl
 	}
 	break;
 	case AFW_CMD_SET_PID:
-	//case FG_DAEMON_CMD_SET_DAEMON_PID:
+	case FG_DAEMON_CMD_SET_DAEMON_PID:
 	{
 		unsigned int ino = bm->gm_no;
 
@@ -1686,13 +1732,15 @@ static void mtk_battery_manager_handler(struct mtk_battery_manager *bm, void *nl
 			else
 				gm->fg_cust_data.dod_init_sel = 0;
 		}
-		ret_msg->data_len += sizeof(ino);
-		memcpy(ret_msg->data, &ino, sizeof(ino));
+		if (msg->cmd == AFW_CMD_SET_PID) {
+			ret_msg->data_len += sizeof(ino);
+			memcpy(ret_msg->data, &ino, sizeof(ino));
+		}
 	}
 	break;
 	default:
 	{
-		if (msg->instance_id == 0) {
+		if (bm->gm_no == 1 || msg->instance_id == 0) {
 			if (bm->gm1 != NULL && bm->gm1->netlink_handler != NULL) {
 				bm->gm1->netlink_handler(bm->gm1, nl_data, ret_msg);
 			} else {
@@ -1890,6 +1938,13 @@ static int mtk_bm_probe(struct platform_device *pdev)
 
 	psy = devm_power_supply_get_by_phandle(&pdev->dev,
 								 "gauge1");
+	if (psy == NULL || IS_ERR(psy))
+		psy = power_supply_get_by_name("mtk-gauge");
+
+	if (psy == NULL || IS_ERR(psy)) {
+		pr_err("[%s]gauge1 psy not ready, deferring\n", __func__);
+		return -EPROBE_DEFER;
+	}
 
 	if (psy == NULL || IS_ERR(psy)) {
 		pr_err("[%s]can not get gauge1 psy\n", __func__);
@@ -1975,6 +2030,10 @@ static int mtk_bm_probe(struct platform_device *pdev)
 
 	bm->bs_data.chg_psy = devm_power_supply_get_by_phandle(&pdev->dev, "charger");
 	if (IS_ERR_OR_NULL(bm->bs_data.chg_psy))
+		bm->bs_data.chg_psy = power_supply_get_by_name("mtk-master-charger");
+	if (IS_ERR_OR_NULL(bm->bs_data.chg_psy))
+		bm->bs_data.chg_psy = power_supply_get_by_name("charger");
+	if (IS_ERR_OR_NULL(bm->bs_data.chg_psy))
 		pr_err("[%s]Fail to get chg_psy!\n", __func__);
 
 	bm_battery_service_init(bm);
@@ -2025,7 +2084,41 @@ static struct platform_driver mtk_battery_manager_driver = {
 		.of_match_table = mtk_bm_of_match,
 	},
 };
-module_platform_driver(mtk_battery_manager_driver);
+static struct platform_device *mtk_bm_fallback_pdev;
+
+static int __init mtk_bm_init(void)
+{
+	struct device_node *np;
+	int ret;
+
+	ret = platform_driver_register(&mtk_battery_manager_driver);
+	if (ret)
+		return ret;
+
+	np = of_find_compatible_node(NULL, NULL, "mediatek,battery manager");
+	if (np) {
+		of_node_put(np);
+	} else {
+		mtk_bm_fallback_pdev = platform_device_register_simple(
+			"mtk_battery_manager", -1, NULL, 0);
+		if (IS_ERR(mtk_bm_fallback_pdev)) {
+			pr_err("[%s] fallback pdev register failed: %ld\n",
+				__func__, PTR_ERR(mtk_bm_fallback_pdev));
+			mtk_bm_fallback_pdev = NULL;
+		}
+	}
+	return 0;
+}
+
+static void __exit mtk_bm_exit(void)
+{
+	if (mtk_bm_fallback_pdev)
+		platform_device_unregister(mtk_bm_fallback_pdev);
+	platform_driver_unregister(&mtk_battery_manager_driver);
+}
+
+module_init(mtk_bm_init);
+module_exit(mtk_bm_exit);
 
 MODULE_AUTHOR("Wy Chuang<Wy.Chuang@mediatek.com>");
 MODULE_DESCRIPTION("MTK Battery Manager");

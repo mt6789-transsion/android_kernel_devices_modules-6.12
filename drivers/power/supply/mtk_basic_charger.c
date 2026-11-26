@@ -79,7 +79,9 @@ static void select_cv(struct mtk_charger *info)
 		}
 
 	constant_voltage = info->data.battery_cv;
+#ifndef MTK_BASE
 	constant_voltage = info->mmi.target_fv;
+#endif
 	info->setting.cv = constant_voltage;
 }
 
@@ -351,7 +353,9 @@ static bool select_charging_current_limit(struct mtk_charger *info,
 		}
 	}
 
+#ifndef MTK_BASE
 	pdata->charging_current_limit = ((info->mmi.target_fcc < 0) ? 0 : info->mmi.target_fcc);
+#endif
 
 	charger_dev_qc_is_detect(info->chg1_dev, &qc_is_detect);
 	charger_dev_get_protocol(info->chg1_dev, &qc_chg_type);

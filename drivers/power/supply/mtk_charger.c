@@ -5643,7 +5643,9 @@ static int charger_routine_thread(void *arg)
 		get_cs_side_battery_voltage(info, &cs_vbat);
 		get_cs_side_battery_current(info, &cs_ibat);
 
+#ifndef MTK_BASE
 		mmi_check_typec_conn_temp(info);
+#endif
 
 		is_charger_on = mtk_is_charger_on(info);
 
@@ -5652,7 +5654,9 @@ static int charger_routine_thread(void *arg)
 
 		check_battery_exist(info);
 		check_dynamic_mivr(info);
+#ifndef MTK_BASE
 		mmi_charger_check_status(info);
+#endif
 		charger_check_status(info);
 		mtk_check_ta_status(info);
 #ifdef MTK_BASE
@@ -7018,10 +7022,9 @@ static int mtk_charger_probe(struct platform_device *pdev)
 	info->bc_disable_charging = false;
 
 #ifdef MTK_BASE
-	/* 8 = KERNEL_POWER_OFF_CHARGING_BOOT */
-	/* 9 = LOW_POWER_OFF_CHARGING_BOOT */
-	if (info != NULL && info->bootmode != 8 && info->bootmode != 9 && info->atm_enabled != true)
-		mtk_charger_force_disable_power_path(info, CHG1_SETTING, true);
+	/* X6837: Do not force-disable powerpath (HIZ mode) on probe before
+	 * mtk_ctd/BC1.2 detects the attached charger; plug_out handles HIZ.
+	 */
 #else
 	info->chg1_dev = get_charger_by_name("primary_chg");
 	if (!IS_ERR_OR_NULL(info->chg1_dev)) {

@@ -400,6 +400,8 @@ bool is_charger_exist(struct mtk_charger *info)
 
 
 		chg_psy = power_supply_get_by_name("primary_chg");
+		if (IS_ERR_OR_NULL(chg_psy))
+			chg_psy = power_supply_get_by_name("charger");
 
 		info->chg_psy = chg_psy;
 	}
@@ -447,6 +449,8 @@ int get_charger_type(struct mtk_charger *info)
 		chr_err("%s retry to get bc12_psy\n", __func__);
 
 		bc12_psy = power_supply_get_by_name("primary_chg");
+		if (IS_ERR_OR_NULL(bc12_psy))
+			bc12_psy = power_supply_get_by_name("charger");
 
 		info->bc12_psy = bc12_psy;
 	}
@@ -498,6 +502,8 @@ int get_usb_type(struct mtk_charger *info)
 		chr_err("%s retry to get bc12_psy\n", __func__);
 
 		bc12_psy = power_supply_get_by_name("primary_chg");
+		if (IS_ERR_OR_NULL(bc12_psy))
+			bc12_psy = power_supply_get_by_name("charger");
 
 		info->bc12_psy = bc12_psy;
 	}

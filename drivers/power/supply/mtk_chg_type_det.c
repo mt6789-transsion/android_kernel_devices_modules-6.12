@@ -12,6 +12,7 @@
 #include <linux/of.h>
 #include <linux/platform_device.h>
 #include <linux/power_supply.h>
+#include <linux/iio/consumer.h>
 #include <linux/reboot.h>
 #include <tcpm.h>
 
@@ -60,7 +61,51 @@ struct mtk_ctd_info {
 	bool is_mmi_pd_hardreset;
 	bool is_mmi_pd_hardreset_plugout;
 	bool tcpc_kpoc;
+	/* X6837 legacy mtk_charger_type psy + pmic_vbus IIO */
+	struct iio_channel *chan_vbus;
+	struct power_supply_desc psy_desc;
+	struct power_supply *psy;
 };
+
+#define X6837_R_CHARGER_1	330
+#define X6837_R_CHARGER_2	39
+
+static enum power_supply_property mtk_ctd_psy_props[] = {
+	POWER_SUPPLY_PROP_ONLINE,
+	POWER_SUPPLY_PROP_TYPE,
+	POWER_SUPPLY_PROP_USB_TYPE,
+	POWER_SUPPLY_PROP_VOLTAGE_NOW,
+};
+
+static int mtk_ctd_psy_get_property(struct power_supply *psy,
+				    enum power_supply_property psp,
+				    union power_supply_propval *val)
+{
+	struct mtk_ctd_info *mci = power_supply_get_drvdata(psy);
+	int ret = 0, raw = 0;
+
+	if (!mci)
+		return -EINVAL;
+
+	if (psp == POWER_SUPPLY_PROP_VOLTAGE_NOW) {
+		if (!IS_ERR_OR_NULL(mci->chan_vbus)) {
+			ret = iio_read_channel_processed(mci->chan_vbus, &raw);
+			if (ret >= 0) {
+				val->intval = (((X6837_R_CHARGER_1 + X6837_R_CHARGER_2) *
+						100 * raw) / X6837_R_CHARGER_2) / 100;
+				return 0;
+			}
+		}
+		val->intval = 0;
+		return ret < 0 ? ret : -ENODATA;
+	}
+
+	if (mci->bc12_psy && !IS_ERR_OR_NULL(mci->bc12_psy[0]))
+		return power_supply_get_property(mci->bc12_psy[0], psp, val);
+
+	val->intval = 0;
+	return 0;
+}
 
 static int mmi_mux_typec_chg_chan(enum mmi_mux_channel channel, bool on)
 {
@@ -388,6 +433,10 @@ static int mtk_ctd_probe(struct platform_device *pdev)
 
 
 		mci->bc12_psy[i] = power_supply_get_by_name("primary_chg");
+		if (IS_ERR_OR_NULL(mci->bc12_psy[i]))
+			mci->bc12_psy[i] = power_supply_get_by_name("charger");
+		if (IS_ERR_OR_NULL(mci->bc12_psy[i]))
+			mci->bc12_psy[i] = devm_power_supply_get_by_phandle(mci->dev, "bc12");
 
 		if (!mci->bc12_psy[i]) {
 			dev_notice(&pdev->dev, "Failed to get charger psy, charger psy is not ready\n");
@@ -401,7 +450,7 @@ static int mtk_ctd_probe(struct platform_device *pdev)
 		mci->chg_dev[i] = get_charger_by_name(str);
 		if (!mci->chg_dev[i]) {
 			dev_notice(mci->dev, "Failed to get %s chg_dev\n", str);
-			ret = -ENODEV;
+			ret = -EPROBE_DEFER;
 			goto out;
 		}
 
@@ -419,6 +468,8 @@ static int mtk_ctd_probe(struct platform_device *pdev)
 			dev_notice(mci->dev, "bc12-sel name is truncated\n");
 
 		ret = of_property_read_u32(np, name, &mci->bc12_sel[i]);
+		if (ret < 0)
+			ret = of_property_read_u32(np, "bc12_sel", &mci->bc12_sel[i]);
 		if (ret < 0) {
 			dev_notice(mci->dev, "Failed to read %s property(%d)\n",
 					     name, ret);
@@ -434,9 +485,13 @@ static int mtk_ctd_probe(struct platform_device *pdev)
 
 		mci->bc12_psy[i] = devm_power_supply_get_by_phandle(mci->dev,
 								    name);
+		if (IS_ERR_OR_NULL(mci->bc12_psy[i]))
+			mci->bc12_psy[i] = devm_power_supply_get_by_phandle(mci->dev, "bc12");
+		if (IS_ERR_OR_NULL(mci->bc12_psy[i]))
+			mci->bc12_psy[i] = power_supply_get_by_name("charger");
 		if (IS_ERR_OR_NULL(mci->bc12_psy[i])) {
 			dev_notice(mci->dev, "Failed to get %s\n", name);
-			ret = -ENODEV;
+			ret = -EPROBE_DEFER;
 			goto out;
 		}
 skip_get_psy:
@@ -447,7 +502,7 @@ skip_get_psy:
 		mci->tcpc[i] = tcpc_dev_get_by_name(name);
 		if (!mci->tcpc[i]) {
 			dev_notice(mci->dev, "Failed to get %s\n", name);
-			ret = -ENODEV;
+			ret = -EPROBE_DEFER;
 			goto out;
 		}
 
@@ -473,6 +528,45 @@ skip_get_psy:
 
 	INIT_WORK(&mci->mmi_hardreset_work,
 					mmi_pd_hardreset_work);
+
+	/* X6837: expose mtk_charger_type psy backed by pmic_vbus IIO channel */
+	mci->chan_vbus = devm_iio_channel_get(mci->dev, "pmic_vbus");
+	if (IS_ERR(mci->chan_vbus)) {
+		dev_notice(mci->dev, "pmic_vbus iio channel unavailable (%ld)\n",
+			   PTR_ERR(mci->chan_vbus));
+		mci->chan_vbus = NULL;
+	}
+	{
+		struct power_supply_config psy_cfg = { .drv_data = mci };
+
+		mci->psy_desc.name = "mtk_charger_type";
+		mci->psy_desc.type = POWER_SUPPLY_TYPE_USB;
+		mci->psy_desc.usb_types = BIT(POWER_SUPPLY_USB_TYPE_UNKNOWN) |
+					  BIT(POWER_SUPPLY_USB_TYPE_SDP) |
+					  BIT(POWER_SUPPLY_USB_TYPE_DCP) |
+					  BIT(POWER_SUPPLY_USB_TYPE_CDP);
+		mci->psy_desc.properties = mtk_ctd_psy_props;
+		mci->psy_desc.num_properties = ARRAY_SIZE(mtk_ctd_psy_props);
+		mci->psy_desc.get_property = mtk_ctd_psy_get_property;
+		mci->psy = devm_power_supply_register(mci->dev, &mci->psy_desc, &psy_cfg);
+		if (IS_ERR(mci->psy)) {
+			dev_notice(mci->dev, "Failed to register mtk_charger_type psy (%ld)\n",
+				   PTR_ERR(mci->psy));
+			mci->psy = NULL;
+		}
+	}
+
+	/* Trigger initial BC1.2 attach if USB/charger is already plugged at boot */
+	for (i = 0; i < mci->nr_port; i++) {
+		uint8_t st = tcpm_inquire_typec_attach_state(mci->tcpc[i]);
+
+		if (st == TYPEC_ATTACHED_SNK || st == TYPEC_ATTACHED_NORP_SRC ||
+		    st == TYPEC_ATTACHED_CUSTOM_SRC || st == TYPEC_ATTACHED_DBGACC_SNK) {
+			dev_info(mci->dev, "%s port%d already attached (state=%u), triggering attach\n",
+				 __func__, i, st);
+			handle_typec_pd_attach(mci, i, ATTACH_TYPE_TYPEC);
+		}
+	}
 
 	dev_info(mci->dev, "%s successfully\n", __func__);
 
