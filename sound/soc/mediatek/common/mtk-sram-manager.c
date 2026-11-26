@@ -184,6 +184,9 @@ int mtk_audio_sram_init(struct device *dev,
 	/* get prefer sram mode, mode size */
 	ret = of_property_read_u32(sram_node,
 				   "prefer-mode", &sram->prefer_mode);
+	if (ret)
+		ret = of_property_read_u32(sram_node,
+					   "prefer_mode", &sram->prefer_mode);
 	if (ret) {
 		dev_err(sram->dev, "%s(), get prefer-mode fail\n", __func__);
 		goto of_error;
@@ -192,6 +195,10 @@ int mtk_audio_sram_init(struct device *dev,
 	ret = of_property_read_u32_array(sram_node, "mode-size",
 					 sram->mode_size,
 					 MTK_AUDIO_SRAM_MODE_NUM);
+	if (ret)
+		ret = of_property_read_u32_array(sram_node, "mode_size",
+						 sram->mode_size,
+						 MTK_AUDIO_SRAM_MODE_NUM);
 	if (ret) {
 		dev_err(sram->dev, "%s(), get mode-size fail, ret %d\n",
 			__func__, ret);
@@ -202,6 +209,9 @@ int mtk_audio_sram_init(struct device *dev,
 	/* get block size */
 	ret = of_property_read_u32(sram_node,
 				   "block-size", &sram->block_size);
+	if (ret)
+		ret = of_property_read_u32(sram_node,
+					   "block_size", &sram->block_size);
 	if (ret) {
 		dev_err(sram->dev, "%s(), get block-size fail\n", __func__);
 		goto of_error;

@@ -815,7 +815,7 @@ static const struct snd_kcontrol_new hpr_in_mux_control =
 	SOC_DAPM_ENUM("HPR Select", hpr_in_mux_map_enum);
 
 static const char * const rcv_in_mux_map[] = {
-	"Open", "Mute", "Voice Playback", "Test Mode"
+	"Open", "Mute", "Voice Playback", "Test Mode", "Dual Voice Playback"
 };
 
 static int rcv_in_mux_map_value[] = {
@@ -823,6 +823,7 @@ static int rcv_in_mux_map_value[] = {
 	RCV_MUX_MUTE,
 	RCV_MUX_VOICE_PLAYBACK,
 	RCV_MUX_TEST_MODE,
+	RCV_MUX_DUAL_VOICE_PLAYBACK,
 };
 
 static SOC_VALUE_ENUM_SINGLE_DECL(rcv_in_mux_map_enum,
@@ -2271,8 +2272,16 @@ static int mt_lo_event(struct snd_soc_dapm_widget *w,
 		regmap_update_bits(priv->regmap, MT6358_AUDDEC_ANA_CON7,
 				   0x3 << 2, 0x1 << 2);
 
+		{
+			extern int mtk_spk_set_ext_pa(bool enable);
+			mtk_spk_set_ext_pa(true);
+		}
 		break;
 	case SND_SOC_DAPM_PRE_PMD:
+		{
+			extern int mtk_spk_set_ext_pa(bool enable);
+			mtk_spk_set_ext_pa(false);
+		}
 		/* Switch LOL MUX to open */
 		regmap_update_bits(priv->regmap, MT6358_AUDDEC_ANA_CON7,
 				   0x3 << 2, 0x0 << 2);
@@ -3781,6 +3790,7 @@ static const struct snd_soc_dapm_route mt6358_dapm_routes[] = {
 
 	/* Receiver Path */
 	{"RCV Mux", "Voice Playback", "DACL"},
+	{"RCV Mux", "Dual Voice Playback", "DACL"},
 	{"Receiver", NULL, "RCV Mux"},
 
 	/* VOW */
@@ -7784,6 +7794,8 @@ static int mt6358_parse_dt(struct mt6358_priv *priv)
 
 	/* get pmic regulator handler */
 	priv->reg_vaud28 = devm_regulator_get_optional(dev, "reg-vaud28");
+	if (IS_ERR(priv->reg_vaud28) && PTR_ERR(priv->reg_vaud28) == -ENODEV)
+		priv->reg_vaud28 = devm_regulator_get_optional(dev, "reg_vaud28");
 	ret = IS_ERR(priv->reg_vaud28);
 	if (ret) {
 		ret = PTR_ERR(priv->reg_vaud28);

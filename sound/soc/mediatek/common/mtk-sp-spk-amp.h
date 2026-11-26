@@ -126,5 +126,7 @@ int mtk_spk_send_ipi_buf_to_dsp(void *data_buffer, uint32_t data_size);
 int mtk_spk_recv_ipi_buf_from_dsp(int8_t *buffer,
 				  int16_t size,
 				  uint32_t *buf_len);
+void mtk_spk_register_ext_pa(int (*set_profile)(int dev_idx, char *profile));
+int mtk_spk_set_ext_pa(bool enable);
 #endif
 

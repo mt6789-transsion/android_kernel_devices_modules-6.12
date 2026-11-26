@@ -92,9 +92,11 @@ static int mt6789_mt6366_spk_amp_event(struct snd_soc_dapm_widget *w,
 	switch (event) {
 	case SND_SOC_DAPM_POST_PMU:
 		/* spk amp on control */
+		mtk_spk_set_ext_pa(true);
 		break;
 	case SND_SOC_DAPM_PRE_PMD:
 		/* spk amp off control */
+		mtk_spk_set_ext_pa(false);
 		break;
 	default:
 		break;
@@ -113,8 +115,47 @@ static const struct snd_soc_dapm_route mt6789_mt6366_routes[] = {
 	{EXT_SPK_AMP_W_NAME, NULL, "Headphone R Ext Spk Amp"},
 };
 
+static int g_tran_aw87xxx_sw;
+static int g_tran_2n1_sw;
+static const char *const tran_on_off_str[] = { "Off", "On" };
+static const struct soc_enum tran_on_off_enum =
+	SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(tran_on_off_str), tran_on_off_str);
+
+static int tran_aw87xxx_sw_get(struct snd_kcontrol *kcontrol,
+			       struct snd_ctl_elem_value *ucontrol)
+{
+	ucontrol->value.integer.value[0] = g_tran_aw87xxx_sw;
+	return 0;
+}
+
+static int tran_aw87xxx_sw_put(struct snd_kcontrol *kcontrol,
+			       struct snd_ctl_elem_value *ucontrol)
+{
+	g_tran_aw87xxx_sw = ucontrol->value.integer.value[0] ? 1 : 0;
+	mtk_spk_set_ext_pa(g_tran_aw87xxx_sw != 0);
+	return 0;
+}
+
+static int tran_2n1_sw_get(struct snd_kcontrol *kcontrol,
+			   struct snd_ctl_elem_value *ucontrol)
+{
+	ucontrol->value.integer.value[0] = g_tran_2n1_sw;
+	return 0;
+}
+
+static int tran_2n1_sw_put(struct snd_kcontrol *kcontrol,
+			   struct snd_ctl_elem_value *ucontrol)
+{
+	g_tran_2n1_sw = ucontrol->value.integer.value[0] ? 1 : 0;
+	return 0;
+}
+
 static const struct snd_kcontrol_new mt6789_mt6366_controls[] = {
 	SOC_DAPM_PIN_SWITCH(EXT_SPK_AMP_W_NAME),
+	SOC_ENUM_EXT("Tran_Aw87xxx_Speaker_Switch", tran_on_off_enum,
+		     tran_aw87xxx_sw_get, tran_aw87xxx_sw_put),
+	SOC_ENUM_EXT("Tran_2N1_Speaker_Switch", tran_on_off_enum,
+		     tran_2n1_sw_get, tran_2n1_sw_put),
 	SOC_ENUM_EXT("MTK_SPK_TYPE_GET", mt6789_spk_type_enum[0],
 		     mt6789_spk_type_get, NULL),
 	SOC_ENUM_EXT("MTK_SPK_I2S_OUT_TYPE_GET", mt6789_spk_type_enum[1],

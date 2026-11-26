@@ -400,6 +400,42 @@ IS_ENABLED(CONFIG_MTK_SCP_AUDIO)
 }
 EXPORT_SYMBOL(mtk_spk_recv_ipi_buf_from_dsp);
 
+static int (*g_ext_pa_set_profile)(int dev_idx, char *profile);
+
+void mtk_spk_register_ext_pa(int (*set_profile)(int dev_idx, char *profile))
+{
+	g_ext_pa_set_profile = set_profile;
+}
+EXPORT_SYMBOL(mtk_spk_register_ext_pa);
+
+static DEFINE_MUTEX(g_ext_pa_lock);
+static int g_ext_pa_state = -1;
+
+int mtk_spk_set_ext_pa(bool enable)
+{
+	char *prof = enable ? "Music" : "Off";
+	int r0 = 0, r1 = 0;
+
+	mutex_lock(&g_ext_pa_lock);
+	if (g_ext_pa_state == (int)enable) {
+		mutex_unlock(&g_ext_pa_lock);
+		return 0;
+	}
+
+	if (!g_ext_pa_set_profile) {
+		mutex_unlock(&g_ext_pa_lock);
+		return 0;
+	}
+
+	r0 = g_ext_pa_set_profile(0, prof);
+	r1 = g_ext_pa_set_profile(1, prof);
+	g_ext_pa_state = enable ? 1 : 0;
+	mutex_unlock(&g_ext_pa_lock);
+	pr_info("%s: enable=%d prof=%s r0=%d r1=%d\n", __func__, enable, prof, r0, r1);
+	return r0 ? r0 : r1;
+}
+EXPORT_SYMBOL(mtk_spk_set_ext_pa);
+
 static const struct i2c_device_id mtk_spk_i2c_id[] = {
 	{ "speaker_amp", 0},
 	{}
