@@ -4794,10 +4794,11 @@ static int musb_probe(struct platform_device *pdev)
 	/* assign usb-role-sw */
 	otg_sx = &glue->otg_sx;
 
-	otg_sx->vbus = devm_regulator_get(&pdev->dev, "vbus");
+	otg_sx->vbus = devm_regulator_get_optional(&pdev->dev, "vbus");
 	if (IS_ERR(otg_sx->vbus)) {
-		dev_info(&pdev->dev, "failed to get vbus\n");
-		return PTR_ERR(otg_sx->vbus);
+		dev_info(&pdev->dev, "vbus regulator not ready (%ld), continuing without host vbus\n",
+			 PTR_ERR(otg_sx->vbus));
+		otg_sx->vbus = NULL;
 	}
 
 	otg_sx->manual_drd_enabled =

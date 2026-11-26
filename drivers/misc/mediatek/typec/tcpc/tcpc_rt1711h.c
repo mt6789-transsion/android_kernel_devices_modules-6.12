@@ -1246,7 +1246,7 @@ static inline int rt1711h_check_revision(struct i2c_client *client)
 		return ret;
 	}
 	data = le16_to_cpu(data);
-	if (data != RICHTEK_1711_VID) {
+	if (data != RICHTEK_1711_VID && data != 0x6dcf) {
 		dev_info(&client->dev, "%s failed, VID=0x%04x\n",
 				       __func__, data);
 		return -ENODEV;
@@ -1457,6 +1457,7 @@ static const struct of_device_id rt1711_of_match_table[] = {
 	{.compatible = "richtek,rt1711h",},
 	{.compatible = "richtek,rt1715",},
 	{.compatible = "richtek,rt1716",},
+	{.compatible = "mediatek,usb_type_c",},
 	{},
 };
 MODULE_DEVICE_TABLE(of, rt1711_of_match_table);

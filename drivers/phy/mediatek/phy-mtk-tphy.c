@@ -2052,7 +2052,9 @@ static int phy_efuse_get(struct mtk_tphy *tphy, struct mtk_phy_instance *instanc
 	case PHY_TYPE_USB2:
 		ret = nvmem_cell_read_variable_le_u32(dev, "intr", &instance->efuse_intr);
 		if (ret) {
-			dev_err(dev, "fail to get u2 intr efuse, %d\n", ret);
+			dev_warn(dev, "skip optional u2 intr efuse, %d\n", ret);
+			instance->efuse_sw_en = 0;
+			ret = 0;
 			break;
 		}
 

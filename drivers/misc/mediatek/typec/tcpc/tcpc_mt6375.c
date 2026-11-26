@@ -1437,9 +1437,14 @@ static int mt6375_wd_polling_evt_process(struct mt6375_tcpc_data *ddata)
 		polling = false;
 		break;
 	}
+#if CONFIG_WATER_DETECTION
 	if (polling ||
 	    tcpc_typec_handle_wd(tcpcs, array_size, true) == -EAGAIN)
 		mt6375_enable_wd_polling(ddata, true);
+#else
+	if (polling)
+		mt6375_enable_wd_polling(ddata, true);
+#endif
 	return 0;
 }
 
@@ -1469,7 +1474,9 @@ out:
 	}
 	MT6375_DBGINFO("retry cnt = %d\n", atomic_read(&ddata->wd_protect_rty));
 	if (!protection && atomic_dec_and_test(&ddata->wd_protect_rty)) {
+#if CONFIG_WATER_DETECTION
 		tcpc_typec_handle_wd(tcpcs, array_size, false);
+#endif
 		atomic_set(&ddata->wd_protect_rty,
 			   CONFIG_WD_PROTECT_RETRY_COUNT);
 	} else
@@ -2400,7 +2407,9 @@ static struct tcpc_ops mt6375_tcpc_ops = {
 	.set_cc_hidet = mt6375_set_cc_hidet,
 	.get_cc_hi = mt6375_get_cc_hi,
 
+#if CONFIG_WATER_DETECTION
 	.set_water_protection = mt6375_set_water_protection,
+#endif
 
 	.set_vbus_short_cc = mt6375_set_vbus_short_cc,
 

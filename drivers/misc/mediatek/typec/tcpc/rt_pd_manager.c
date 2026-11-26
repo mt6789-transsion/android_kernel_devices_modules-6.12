@@ -98,6 +98,14 @@ static int pd_tcp_notifier_call(struct notifier_block *nb,
 			 * start charger type detection,
 			 * and enable device connection
 			 */
+			{
+				struct power_supply *chg_psy = power_supply_get_by_name("charger");
+				if (!IS_ERR_OR_NULL(chg_psy)) {
+					union power_supply_propval prop = { .intval = 1 };
+					power_supply_set_property(chg_psy, POWER_SUPPLY_PROP_ONLINE, &prop);
+					power_supply_put(chg_psy);
+				}
+			}
 
 			typec_set_data_role(rpmd->typec_port[idx],
 					    TYPEC_DEVICE);
@@ -121,6 +129,14 @@ static int pd_tcp_notifier_call(struct notifier_block *nb,
 			 * report charger plug-out,
 			 * and disable device connection
 			 */
+			{
+				struct power_supply *chg_psy = power_supply_get_by_name("charger");
+				if (!IS_ERR_OR_NULL(chg_psy)) {
+					union power_supply_propval prop = { .intval = 0 };
+					power_supply_set_property(chg_psy, POWER_SUPPLY_PROP_ONLINE, &prop);
+					power_supply_put(chg_psy);
+				}
+			}
 		} else if (old_state == TYPEC_UNATTACHED &&
 			   (new_state == TYPEC_ATTACHED_SRC ||
 			    new_state == TYPEC_ATTACHED_DEBUG)) {

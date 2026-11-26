@@ -487,8 +487,18 @@ int mt_usb_otg_switch_init(struct mt_usb_glue *glue)
 	if (otg_sx->manual_drd_enabled)
 		musb_dr_debugfs_init(mtk_musb);
 #endif
-	else if (otg_sx->role_sw_used)
+	else if (otg_sx->role_sw_used) {
 		ret = mt_usb_role_sw_register(otg_sx);
+		if (!ret) {
+			/* Power on USB2 PHY and default to peripheral/device mode
+			 * so Recovery ADB enumerates immediately even before TCPC/extcon.
+			 */
+			set_usb_phy_clear();
+			phy_power_on(glue->phy);
+			otg_sx->latest_role = USB_ROLE_DEVICE;
+			mt_usb_set_mailbox(otg_sx, MUSB_VBUS_VALID);
+		}
+	}
 	else
 		ret = mt_usb_extcon_register(otg_sx);
 
