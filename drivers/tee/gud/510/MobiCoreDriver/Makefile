@@ -56,3 +56,10 @@ KBUILD_CFLAGS += -I${VLM_VDRIVERS}/drivers/vlx
 
 # MobiCore Driver includes
 ccflags-y += -I$(GUD_ROOT_FOLDER)/MobiCoreDriver
+
+CFLAGS_nq.o += -fno-sanitize=bounds
+CFLAGS_mcp.o += -fno-sanitize=bounds
+CFLAGS_session.o += -fno-sanitize=bounds
+CFLAGS_user.o += -fno-sanitize=bounds
+CFLAGS_admin.o += -fno-sanitize=bounds
+CFLAGS_client.o += -fno-sanitize=bounds

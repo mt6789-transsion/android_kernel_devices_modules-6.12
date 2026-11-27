@@ -306,7 +306,7 @@ struct tee_client *client_create(bool is_from_kernel, const char *vm_id)
 	mutex_init(&client->cwsm_release_lock);
 	INIT_LIST_HEAD(&client->cwsms);
 	INIT_LIST_HEAD(&client->operations);
-	strlcpy(client->vm_id, vm_id, sizeof(client->vm_id));
+	strscpy(client->vm_id, vm_id, sizeof(client->vm_id));
 	/* Add client to list of clients */
 	mutex_lock(&client_ctx.clients_lock);
 	list_add_tail(&client->list, &client_ctx.clients);
