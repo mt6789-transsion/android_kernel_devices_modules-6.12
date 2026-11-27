@@ -1668,7 +1668,8 @@ static void mtk_i2c_gpio_dump(struct mtk_i2c *i2c)
 
 	start = i2c->scl_gpio_id < i2c->sda_gpio_id ? i2c->scl_gpio_id : i2c->sda_gpio_id;
 	end = i2c->scl_gpio_id < i2c->sda_gpio_id ? i2c->sda_gpio_id : i2c->scl_gpio_id;
-	gpio_dump_regs_range(start, end);
+	/* gpio_dump_regs_range(start, end); */
+	(void)start; (void)end;
 }
 #endif
 

@@ -4,13 +4,16 @@
  *
  */
 
+#include <linux/delay.h>
 #include <linux/device.h>
 #include <linux/err.h>
 #include <linux/hrtimer.h>
 #include <linux/init.h>
 #include <linux/kernel.h>
+#include <linux/ktime.h>
 #include <linux/leds.h>
 #include <linux/module.h>
+#include <linux/mutex.h>
 #include <linux/of.h>
 #include <linux/of_platform.h>
 #include <linux/platform_device.h>
@@ -22,7 +25,7 @@
 #undef pr_fmt
 #define pr_fmt(fmt) KBUILD_MODNAME " %s(%d) :" fmt, __func__, __LINE__
 
-#define DEFAULT_MIN_LIMIT 15
+#define DEFAULT_MIN_LIMIT 25
 
 struct reg_vibr_config {
 	unsigned int min_volt;
@@ -34,6 +37,8 @@ struct reg_vibr {
 	atomic_t reg_status;
 	atomic_t vibr_state;
 	atomic_t vibr_shutdown;
+	struct mutex lock;
+	ktime_t enable_time;
 	struct workqueue_struct *vibr_queue;
 	struct work_struct vibr_work;
 	struct led_classdev vibr_cdev;
@@ -103,8 +108,10 @@ static void vibr_enable(struct reg_vibr *vibr)
 	if (!atomic_read(&vibr->reg_status)) {
 		if (regulator_enable(vibr->vibr_conf.reg))
 			pr_notice("set vibr_reg enable failed!\n");
-		else
+		else {
 			atomic_set(&vibr->reg_status, 1);
+			vibr->enable_time = ktime_get();
+		}
 	} else {
 		pr_notice("vibr_reg already enabled.\n");
 	}
@@ -112,9 +119,16 @@ static void vibr_enable(struct reg_vibr *vibr)
 
 static void vibr_disable(struct reg_vibr *vibr)
 {
+	s64 elapsed_ms;
+
 	pr_info("vibr disable\n");
 
 	if (atomic_read(&vibr->reg_status)) {
+		if (!atomic_read(&vibr->vibr_shutdown)) {
+			elapsed_ms = ktime_ms_delta(ktime_get(), vibr->enable_time);
+			if (elapsed_ms >= 0 && elapsed_ms < DEFAULT_MIN_LIMIT)
+				msleep(DEFAULT_MIN_LIMIT - elapsed_ms);
+		}
 		if (regulator_disable(vibr->vibr_conf.reg))
 			pr_notice("set vibr_reg disable failed!\n");
 		else
@@ -128,22 +142,27 @@ static void update_vibrator(struct work_struct *work)
 {
 	struct reg_vibr *vibr = container_of(work, struct reg_vibr, vibr_work);
 
+	mutex_lock(&vibr->lock);
 	if (!atomic_read(&vibr->vibr_state))
 		vibr_disable(vibr);
 	else
 		vibr_enable(vibr);
+	mutex_unlock(&vibr->lock);
 }
 
 static int regulator_vibrator_set(struct led_classdev *led_cdev, enum led_brightness value)
 {
 	struct reg_vibr *vibr = container_of(led_cdev, struct reg_vibr, vibr_cdev);
 
-	if (atomic_read(&vibr->vibr_shutdown) || value == LED_OFF)
+	mutex_lock(&vibr->lock);
+	if (atomic_read(&vibr->vibr_shutdown) || value == LED_OFF) {
 		atomic_set(&vibr->vibr_state, 0);
-	else
+		vibr_disable(vibr);
+	} else {
 		atomic_set(&vibr->vibr_state, 1);
-
-	queue_work(vibr->vibr_queue, &vibr->vibr_work);
+		vibr_enable(vibr);
+	}
+	mutex_unlock(&vibr->lock);
 	return 0;
 }
 
@@ -195,6 +214,7 @@ static int vib_probe(struct platform_device *pdev)
 	}
 
 	INIT_WORK(&m_vibr->vibr_work, update_vibrator);
+	mutex_init(&m_vibr->lock);
 	atomic_set(&m_vibr->vibr_shutdown, 0);
 
 	if (regulator_is_enabled(m_vibr->vibr_conf.reg))

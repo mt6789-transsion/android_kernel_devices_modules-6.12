@@ -1690,7 +1690,11 @@ static irqreturn_t msdc_cmdq_irq(struct msdc_host *host, u32 intsts)
 			cmd_err, dat_err, intsts);
 	}
 
+#if IS_ENABLED(CONFIG_MMC_CQHCI)
 	return cqhci_irq(mmc, 0, cmd_err, dat_err);
+#else
+	return IRQ_NONE;
+#endif
 }
 
 static irqreturn_t msdc_irq(int irq, void *dev_id)
@@ -2899,7 +2903,11 @@ static int msdc_drv_probe(struct platform_device *pdev)
 		host->cq_host->caps |= CQHCI_TASK_DESC_SZ_128;
 		host->cq_host->mmio = host->base + 0x800;
 		host->cq_host->ops = &msdc_cmdq_ops;
+#if IS_ENABLED(CONFIG_MMC_CQHCI)
 		ret = cqhci_init(host->cq_host, mmc, true);
+#else
+		ret = -EOPNOTSUPP;
+#endif
 		if (ret)
 			goto host_free;
 		mmc->max_segs = 128;
@@ -3086,6 +3094,7 @@ static int __maybe_unused msdc_suspend(struct device *dev)
 	int ret;
 	u32 val;
 
+#if IS_ENABLED(CONFIG_MMC_CQHCI)
 	if (mmc->caps2 & MMC_CAP2_CQE) {
 		ret = cqhci_suspend(mmc);
 		if (ret)
@@ -3093,6 +3102,7 @@ static int __maybe_unused msdc_suspend(struct device *dev)
 		val = readl(host->base + MSDC_INT);
 		writel(val, host->base + MSDC_INT);
 	}
+#endif
 
 	/*
 	 * Bump up runtime PM usage counter otherwise dev->power.needs_force_resume will

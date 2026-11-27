@@ -293,12 +293,14 @@ static int mt6375_adc_probe(struct platform_device *pdev)
 	indio_dev->channels = mt6375_adc_channels;
 	indio_dev->num_channels = ARRAY_SIZE(mt6375_adc_channels);
 
+#if IS_ENABLED(CONFIG_IIO_TRIGGERED_BUFFER)
 	ret = devm_iio_triggered_buffer_setup(&pdev->dev, indio_dev, NULL,
 					      mt6375_adc_trigger_handler, NULL);
 	if (ret) {
 		dev_err(&pdev->dev, "Failed to allocate iio trigger buffer\n");
 		return ret;
 	}
+#endif
 
 	return devm_iio_device_register(&pdev->dev, indio_dev);
 }

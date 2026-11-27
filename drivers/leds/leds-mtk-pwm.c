@@ -38,7 +38,11 @@ struct mt_leds_pwm {
 static int __maybe_unused led_pwm_get_conn_id(struct mt_led_data *mdev,
 		       int flag)
 {
+#if IS_ENABLED(CONFIG_DRM_MEDIATEK_V2)
 	mdev->conf.connector_id = mtk_drm_get_conn_obj_id_from_idx(mdev->desp.index, flag);
+#else
+	mdev->conf.connector_id = 0;
+#endif
 	pr_info("disp_id: %d, get connector id %d", mdev->desp.index, mdev->conf.connector_id);
 	return 0;
 }
@@ -113,7 +117,11 @@ static int led_pwm_create_fwnode(struct device *dev, struct mt_leds_pwm *priv)
 		led.max_brightness = led_data->m_led.conf.cdev.max_brightness;
 		led_data->m_led.mtk_hw_brightness_set = led_pwm_set;
 		led_data->m_led.mtk_conn_id_get = led_pwm_get_conn_id;
+#if IS_ENABLED(CONFIG_DRM_MEDIATEK_V2)
 		led_data->m_led.desp.connector_id = mtk_drm_get_conn_obj_id_from_idx(led_data->m_led.desp.index, 0);
+#else
+		led_data->m_led.desp.connector_id = 0;
+#endif
 
 		ret = led_pwm_add(dev, priv, &led, fwnode);
 		priv->num_leds++;

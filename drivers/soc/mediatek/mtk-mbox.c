@@ -557,9 +557,9 @@ static irqreturn_t mtk_mbox_isr(int irq, void *dev_id)
 			irq_temp = irq_temp | (0x1 << pin_recv->pin_index);
 			/*check user buf*/
 			if (!pin_recv->pin_buf) {
-				pr_err("[MBOX Error]null ptr dev=%s ipi_id=%d",
+				pr_err_ratelimited("[MBOX Error]null ptr dev=%s ipi_id=%d\n",
 					mbdev->name, pin_recv->chan_id);
-				BUG_ON(1);
+				continue;
 			}
 			if (minfo->opt == MBOX_OPT_QUEUE_DIR ||
 			 minfo->opt == MBOX_OPT_QUEUE_SMEM) {

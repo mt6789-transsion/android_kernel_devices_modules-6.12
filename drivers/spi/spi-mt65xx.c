@@ -364,6 +364,9 @@ static const struct of_device_id mtk_spi_of_match[] = {
 	{ .compatible = "mediatek,mt6765-spi",
 		.data = (void *)&mt6765_compat,
 	},
+	{ .compatible = "mediatek,mt6789-spi",
+		.data = (void *)&mt6765_compat,
+	},
 	{ .compatible = "mediatek,mt6991-spi",
 		.data = (void *)&mt6991_compat,
 	},
@@ -506,7 +509,6 @@ static void mtk_spi_error_dump(struct spi_controller *ctrl,
 	spin_lock_irqsave(&mdata->eh_spi_lock, flags);
 
 	if (mdata->use_spimem || ctrl->can_dma(ctrl, NULL, mdata->cur_transfer)) {
-		mt_irq_dump_status(mdata->irq);
 		/* timeout occurred due to no response to irq, check if IP irq bit is raised.*/
 		spi_debug("status0:0x%.8x\n", readl(mdata->base + SPI_STATUS0_REG));
 	}

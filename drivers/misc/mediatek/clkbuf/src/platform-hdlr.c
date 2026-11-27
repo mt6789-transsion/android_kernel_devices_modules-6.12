@@ -347,11 +347,17 @@ static struct match_platform mt8781_match = {
 	.init = &mt8xxx_init,
 };
 
+static struct match_platform mt6789_legacy_match = {
+	.name = "mediatek,clock_buffer_ctrl",
+	.init = &mt8xxx_init,
+};
+
 static struct match_platform *matches_platform[] = {
 	&mtxxxx_match,
 	&mt8786_match,
 	&mt8792_match,
 	&mt8781_match,
+	&mt6789_legacy_match,
 	NULL,
 };
 

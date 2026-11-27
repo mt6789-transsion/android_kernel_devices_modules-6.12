@@ -1729,12 +1729,41 @@ static struct clkbuf_hdlr pmic_hdlr_lv3 = {
 	.data = &mt6357_data,
 };
 
+static struct device_node *clkbuf_find_pmic_node(struct device_node *clkbuf_node)
+{
+	struct device_node *pmic_node;
+
+	pmic_node = of_parse_phandle(clkbuf_node, "pmic", 0);
+	if (!pmic_node)
+		pmic_node = of_find_compatible_node(NULL, NULL, "mediatek,clock_buffer");
+	return pmic_node;
+}
+
+static int legacy_xo_name_to_id(const char *name, int idx)
+{
+	if (!name)
+		return idx;
+	if (!strcmp(name, "XO_SOC"))
+		return 0;
+	if (!strcmp(name, "XO_WCN"))
+		return 1;
+	if (!strcmp(name, "XO_NFC"))
+		return 2;
+	if (!strcmp(name, "XO_CEL"))
+		return 3;
+	if (!strcmp(name, "XO_EXT"))
+		return 6;
+	if (!strcmp(name, "XO_PD") || !strcmp(name, "XO_AUD"))
+		return 5;
+	return (idx == 4) ? 6 : idx;
+}
+
 int count_pmic_node(struct device_node *clkbuf_node)
 {
 	struct device_node *pmic_node, *xo_buf;
 	int num_xo = 0;
 	/*check clkbuf controller*/
-	pmic_node = of_parse_phandle(clkbuf_node, "pmic", 0);
+	pmic_node = clkbuf_find_pmic_node(clkbuf_node);
 
 	if (!pmic_node) {
 		CLKBUF_DBG("find pmic_node failed, not support DCXO\n");
@@ -1743,6 +1772,11 @@ int count_pmic_node(struct device_node *clkbuf_node)
 	/*count xo numbers*/
 	for_each_child_of_node(pmic_node, xo_buf) {
 		num_xo++;
+	}
+	if (num_xo == 0) {
+		int cnt = of_property_count_strings(pmic_node, "mediatek,xo-buf-name");
+		if (cnt > 0)
+			num_xo = cnt;
 	}
 
 	CLKBUF_DBG("xo support numbers: %d", num_xo);
@@ -1794,7 +1828,7 @@ static struct clkbuf_dts *pmic_parse_dts_v1(struct clkbuf_dts *array,
 	struct regmap *pmic_base;
 	unsigned int num_xo = 0;
 
-	pmic_node = of_parse_phandle(clkbuf_node, "pmic", 0);
+	pmic_node = clkbuf_find_pmic_node(clkbuf_node);
 
 	if (!pmic_node) {
 		CLKBUF_DBG("find pmic_node failed, not support DCXO\n");
@@ -1846,7 +1880,7 @@ static struct clkbuf_dts *pmic_parse_dts_lv1(struct clkbuf_dts *array,
 	struct regmap *pmic_base;
 	unsigned int num_xo = 0;
 
-	pmic_node = of_parse_phandle(clkbuf_node, "pmic", 0);
+	pmic_node = clkbuf_find_pmic_node(clkbuf_node);
 
 	if (!pmic_node) {
 		CLKBUF_DBG("find pmic_node failed, not support DCXO\n");
@@ -1858,6 +1892,8 @@ static struct clkbuf_dts *pmic_parse_dts_lv1(struct clkbuf_dts *array,
 	}
 
 	pmic_dev = of_find_device_by_node(pmic_node);
+	if (!pmic_dev && pmic_node->parent)
+		pmic_dev = of_find_device_by_node(pmic_node->parent);
 	if (!pmic_dev) {
 		CLKBUF_DBG("find pmic_dev failed, not support pmic_dev\n");
 		return NULL;
@@ -1865,12 +1901,41 @@ static struct clkbuf_dts *pmic_parse_dts_lv1(struct clkbuf_dts *array,
 
 	/* get regmap by old way, use pmic main chip */
 	chip = dev_get_drvdata(pmic_dev->dev.parent);
+	if (!chip || !chip->regmap)
+		chip = dev_get_drvdata(&pmic_dev->dev);
 	if (!chip || !chip->regmap) {
 		CLKBUF_DBG("find chip or chip->regmap failed, not support regmap\n");
 		return NULL;
 	}
 
 	pmic_base = chip->regmap;
+
+	if (num_xo == 0) {
+		int cnt = of_property_count_strings(pmic_node, "mediatek,xo-buf-name");
+		int i;
+		const char *comp = NULL;
+
+		of_property_read_string(pmic_node, "compatible", &comp);
+		if (cnt > 0) {
+			num_xo = cnt;
+			for (i = 0; i < cnt; i++) {
+				const char *xname = NULL;
+
+				of_property_read_string_index(pmic_node,
+					"mediatek,xo-buf-name", i, &xname);
+				array->nums = nums;
+				array->num_xo = num_xo;
+				array->comp = (char *)comp;
+				array->xo_name = (char *)(xname ? xname : "XO");
+				array->hw.hw_type = PMIC;
+				array->xo_id = legacy_xo_name_to_id(xname, i);
+				array->perms = 0xffffffff;
+				array->hw.base.map = pmic_base;
+				array++;
+			}
+		}
+		return array;
+	}
 
 	/*start parsing pmic dcxo dts*/
 	for_each_child_of_node(pmic_node, xo_buf) {
@@ -1909,6 +1974,13 @@ static struct match_pmic mt6358_match_pmic = {
 
 static struct match_pmic mt6366_match_pmic = {
 	.name = "mediatek,mt6366-clkbuf",
+	.hdlr = &pmic_hdlr_lv1_6366,
+	.init = &pmic_init_lv1,
+	.parse_dts = &pmic_parse_dts_lv1,
+};
+
+static struct match_pmic mt6366_legacy_match_pmic = {
+	.name = "mediatek,clock_buffer",
 	.hdlr = &pmic_hdlr_lv1_6366,
 	.init = &pmic_init_lv1,
 	.parse_dts = &pmic_parse_dts_lv1,
@@ -1967,6 +2039,7 @@ static struct match_pmic *matches_pmic[] = {
 	&mt6357_match_pmic,
 	&mt6358_match_pmic,
 	&mt6366_match_pmic,
+	&mt6366_legacy_match_pmic,
 	&mt6366_tb_match_pmic,
 	&mt6358_tb_match_pmic,
 	&mt6685_match_pmic,
@@ -1983,7 +2056,7 @@ struct clkbuf_dts *parse_pmic_dts(struct clkbuf_dts *array,
 	struct device_node *pmic_node;
 	const char *comp = NULL;
 
-	pmic_node = of_parse_phandle(clkbuf_node, "pmic", 0);
+	pmic_node = clkbuf_find_pmic_node(clkbuf_node);
 
 	if (!pmic_node) {
 		CLKBUF_DBG("find \"pmic\" node failed\n");
