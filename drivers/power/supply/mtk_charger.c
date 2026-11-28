@@ -4197,7 +4197,7 @@ static bool mmi_is_power_supply_changed(struct mtk_charger *info)
 		g_real_charger_type == info->mmi.real_charger_type &&
 		g_cid_state == info->mmi.cid_state)
 	{
-		pr_info("[%s] same mmi status no need broadcast uevent\n", __func__);
+		pr_debug("[%s] same mmi status no need broadcast uevent\n", __func__);
 		return false;
 	}
 
