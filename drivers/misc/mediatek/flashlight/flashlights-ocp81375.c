@@ -22,6 +22,9 @@
 
 #include "flashlight-core.h"
 
+#define debug_mask ocp_debug_mask
+static int ocp_debug_mask;
+
 #define OCP81375_NAME            "flashlights-ocp81375"
 #define OCP81375_CHANNEL_NUM     2
 #define OCP81375_CHANNEL_CH1     0
@@ -335,6 +338,8 @@ static int ocp81375_ioctl(unsigned int cmd, unsigned long arg)
 			fl_arg->arg = 0;
 		if ((unsigned int)channel >= OCP81375_CHANNEL_NUM)
 			BUG();
+		if (fl_arg->arg >= ocp81375_device.ch[channel].duty_num)
+			fl_arg->arg = ocp81375_device.ch[channel].duty_num - 1;
 		ocp81375_device.ch[channel].current_ma =
 			ocp81375_device.ch[channel].current_table[fl_arg->arg];
 		ocp81375_device.ch[channel].duty = fl_arg->arg;
@@ -410,6 +415,40 @@ static int ocp81375_ioctl(unsigned int cmd, unsigned long arg)
 		break;
 
 	default:
+		if (_IOC_NR(cmd) == 254) {
+			/* Transsion Camera slide-brightness ioctl */
+			int val = fl_arg->arg;
+			int min_ma, max_ma, cur_ma;
+
+			if ((unsigned int)channel >= OCP81375_CHANNEL_NUM)
+				return -EINVAL;
+			if (val <= 0) {
+				ocp81375_disable(channel);
+				break;
+			}
+			if (val < 10)
+				val = 10;
+			if (val > 100)
+				val = 100;
+			if (channel == OCP81375_CHANNEL_CH1) {
+				min_ma = 10;
+				max_ma = 150;
+			} else {
+				min_ma = 120;
+				max_ma = 230;
+			}
+			cur_ma = min_ma + ((val - 10) * (max_ma - min_ma)) / 90;
+			ocp81375_device.ch[channel].current_ma = cur_ma;
+			ocp81375_device.ch[channel].duty = 0;
+			ocp81375_set_current(channel, cur_ma);
+			ocp81375_enable(channel);
+			break;
+		}
+		if (_IOC_NR(cmd) == 251) {
+			/* FLASH_IOC_GET_HW_FAULT2 */
+			fl_arg->arg = 0;
+			break;
+		}
 		pr_info("No such command and arg(%d): (%d, %d)\n",
 			channel, _IOC_NR(cmd), fl_arg->arg);
 		return -ENOTTY;
@@ -420,12 +459,18 @@ static int ocp81375_ioctl(unsigned int cmd, unsigned long arg)
 
 static ssize_t ocp81375_strobe_store(struct flashlight_arg fl_arg)
 {
-	ocp81375_set_driver(0);
+	int level = fl_arg.level;
+
 	if ((unsigned int)fl_arg.channel >= OCP81375_CHANNEL_NUM)
 		BUG();
+	if (level < 0)
+		level = 0;
+	if (level >= ocp81375_device.ch[fl_arg.channel].duty_num)
+		level = ocp81375_device.ch[fl_arg.channel].duty_num - 1;
 
+	ocp81375_set_driver(1);
 	ocp81375_device.ch[fl_arg.channel].current_ma =
-		ocp81375_device.ch[fl_arg.channel].current_table[fl_arg.level];
+		ocp81375_device.ch[fl_arg.channel].current_table[level];
 	ocp81375_set_current(fl_arg.channel, ocp81375_device.ch[fl_arg.channel].current_ma);
 	ocp81375_enable(fl_arg.channel);
 	if (fl_arg.dur > 0) {
@@ -435,6 +480,7 @@ static ssize_t ocp81375_strobe_store(struct flashlight_arg fl_arg)
 			mdelay(1);
 	}
 	ocp81375_disable(fl_arg.channel);
+	ocp81375_set_driver(0);
 	if (debug_mask)
 		pr_info("Release: %d\n", ocp81375_device.use_count);
 
@@ -588,19 +634,136 @@ static struct platform_driver ocp81375_platform_driver = {
 	},
 };
 
+static struct class *ocp81375_torch_class;
+static struct device *ocp81375_torch_dev;
+static int ocp81375_torch_level;
+
+static struct class *ocp81375_sub_torch_class;
+static struct device *ocp81375_sub_torch_dev;
+static int ocp81375_sub_torch_level;
+
+static void ocp81375_apply_sysfs_torch(int ch, int *cur_level, int val)
+{
+	int was_on = (*cur_level > 0);
+	int want_on = (val > 0);
+
+	if (val < 0)
+		val = 0;
+	*cur_level = val;
+
+	if (!ocp81375_device.client)
+		return;
+
+	if (want_on) {
+		int ma;
+
+		if (!was_on)
+			ocp81375_set_driver(1);
+		if (ch == OCP81375_CHANNEL_CH1) {
+			int idx = val > 8 ? 8 : val;
+
+			ma = back_channel_current[idx];
+		} else {
+			/* Front torch: scale safely in torch range (<= 400 mA) */
+			ma = (val <= 1) ? 100 : (val == 2 ? 200 : 300);
+		}
+		ocp81375_device.ch[ch].current_ma = ma;
+		ocp81375_set_current(ch, ma);
+		ocp81375_enable(ch);
+	} else if (was_on) {
+		ocp81375_disable(ch);
+		ocp81375_set_driver(0);
+	}
+}
+
+static ssize_t torch_level_show(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	return sysfs_emit(buf, "%d\n", ocp81375_torch_level);
+}
+
+static ssize_t torch_level_store(struct device *dev,
+				 struct device_attribute *attr,
+				 const char *buf, size_t count)
+{
+	int val;
+
+	if (kstrtoint(buf, 10, &val) == 0)
+		ocp81375_apply_sysfs_torch(OCP81375_CHANNEL_CH1,
+					   &ocp81375_torch_level, val);
+	return count;
+}
+static DEVICE_ATTR_RW(torch_level);
+
+static ssize_t sub_torch_level_show(struct device *dev,
+				    struct device_attribute *attr, char *buf)
+{
+	return sysfs_emit(buf, "%d\n", ocp81375_sub_torch_level);
+}
+
+static ssize_t sub_torch_level_store(struct device *dev,
+				     struct device_attribute *attr,
+				     const char *buf, size_t count)
+{
+	int val;
+
+	if (kstrtoint(buf, 10, &val) == 0)
+		ocp81375_apply_sysfs_torch(OCP81375_CHANNEL_CH2,
+					   &ocp81375_sub_torch_level, val);
+	return count;
+}
+static DEVICE_ATTR_RW(sub_torch_level);
+
 static int __init flashlight_ocp81375_init(void)
 {
 	int ret;
 
 	ret = platform_driver_register(&ocp81375_platform_driver);
-	if (ret)
+	if (ret) {
 		pr_err("Failed to register platform driver\n");
+		return ret;
+	}
 
-	return ret;
+	ocp81375_torch_class = class_create("torch");
+	if (!IS_ERR(ocp81375_torch_class)) {
+		ocp81375_torch_dev = device_create(ocp81375_torch_class, NULL,
+						   0, NULL, "torch");
+		if (!IS_ERR(ocp81375_torch_dev)) {
+			if (device_create_file(ocp81375_torch_dev,
+					       &dev_attr_torch_level))
+				pr_err("ocp81375: failed to create torch_level\n");
+		}
+	}
+
+	ocp81375_sub_torch_class = class_create("sub_torch");
+	if (!IS_ERR(ocp81375_sub_torch_class)) {
+		ocp81375_sub_torch_dev = device_create(ocp81375_sub_torch_class,
+						       NULL, 0, NULL, "sub_torch");
+		if (!IS_ERR(ocp81375_sub_torch_dev)) {
+			if (device_create_file(ocp81375_sub_torch_dev,
+					       &dev_attr_sub_torch_level))
+				pr_err("ocp81375: failed to create sub_torch_level\n");
+		}
+	}
+
+	return 0;
 }
 
 static void __exit flashlight_ocp81375_exit(void)
 {
+	if (!IS_ERR_OR_NULL(ocp81375_sub_torch_dev)) {
+		device_remove_file(ocp81375_sub_torch_dev,
+				   &dev_attr_sub_torch_level);
+		device_destroy(ocp81375_sub_torch_class, 0);
+	}
+	if (!IS_ERR_OR_NULL(ocp81375_sub_torch_class))
+		class_destroy(ocp81375_sub_torch_class);
+	if (!IS_ERR_OR_NULL(ocp81375_torch_dev)) {
+		device_remove_file(ocp81375_torch_dev, &dev_attr_torch_level);
+		device_destroy(ocp81375_torch_class, 0);
+	}
+	if (!IS_ERR_OR_NULL(ocp81375_torch_class))
+		class_destroy(ocp81375_torch_class);
 	platform_driver_unregister(&ocp81375_platform_driver);
 }
 
